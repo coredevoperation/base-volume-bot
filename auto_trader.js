@@ -229,7 +229,7 @@ export const autoSwap_Buy_thread = async (web3, database, bot) => {
 
         const wallets = await database.selectWallets({username: session.username, dist_finished: 1, swap_finished: 0})        
         
-        for (let i = 0; i < (wallets.length < 5 ? wallets.length : 5); i++)
+        for (let i = 0; i < session.wallet_count; i++)
         {
             let wallet = wallets[i]
 
@@ -261,7 +261,7 @@ export const autoSwap_Buy_thread = async (web3, database, bot) => {
             // await utils.sleep(100)
             
             await autoSwap_Sell(web3, database, bot, session, wallet, token_address, randomNum, 0, 'PERCENT', 'v2')
-            // await utils.sleep(100)
+            await utils.sleep(session.interval * 1000)
         }
 
         // if (predictPrice >= session.autosell_hi * token.price) {
@@ -285,7 +285,7 @@ export const autoSwap_Buy_thread = async (web3, database, bot) => {
             // console.log("SEsssssssss  -> ", session.swap_start, session.swap_end_time)
         }
         else {
-            let msg = `✅ Successfully auto swap for 5 wallets has been completed\n${user.username}`
+            let msg = `✅ Successfully auto swap for multi wallets has been completed\n${user.username}`
             bot.sendMessage(user.chatid, msg)
             console.log(`[${user.username}]`, msg)
 
@@ -294,21 +294,21 @@ export const autoSwap_Buy_thread = async (web3, database, bot) => {
             session.swap_finished = 1;
             session.swap_end_time = 0;
             session.swap_start = 0;
-            session.charge_active = 1;
+            session.charge_active = 0;
             await database.updateUser(session)
 
-            for (let i = 0; i < (wallets.length < 5 ? wallets.length : 5); i++) {
+            for (let i = 0; i < session.wallet_count; i++) {
                 let wallet = wallets[i]
                 wallet.swap_finished = 1;
                 await database.updateWallet(wallet)
             }
-            const usedWallets = await database.selectWallets({user_id: user.user_id, swap_finished: 1});
-            if (usedWallets.length == process.env.WALLET_DIST_COUNT) {
-                let msg = `🏆 Successfully auto swap has been completed 🏆\n${user.username}`
-                bot.sendMessage(user.chatid, msg)
-                session.charge_active = 0;
-                await database.updateUser(session)
-            }
+            // const usedWallets = await database.selectWallets({user_id: user.user_id, swap_finished: 1});
+            // if (usedWallets.length == process.env.WALLET_DIST_COUNT) {
+            //     let msg = `🏆 Successfully auto swap has been completed 🏆\n${user.username}`
+            //     bot.sendMessage(user.chatid, msg)
+            //     session.charge_active = 0;
+            //     await database.updateUser(session)
+            // }
         }
     }
 

@@ -42,6 +42,8 @@ const userSchema = new mongoose.Schema({
   swap_end_time: Number,
   swap_start: Number,
   withdraw_wallet: String,
+  interval: Number,
+  wallet_count: Number,
 
   invest_amount: {type:Number, default:0.1},
   profit_target: {type:Number, default:1},
@@ -252,6 +254,8 @@ export const updateUser = (params) => {
       user.swap_end_time = params.swap_end_time
       user.swap_start = params.swap_start
       user.withdraw_wallet = params.withdraw_wallet
+      user.wallet_count = params.wallet_count
+      user.interval = params.interval
       //user.vip = params.vip
 
       console.log('user.charge_active = ' + user.charge_active)

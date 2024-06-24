@@ -120,7 +120,8 @@ export const OPTION_SET_BOOST_5ETH_SETTING = 301
 export const OPTION_SET_BOOST_10ETH_SETTING = 302
 export const OPTION_SET_BOOST_15ETH_SETTING = 303
 export const OPTION_SET_BOOST_30ETH_SETTING = 304
-export const OPTION_SET_BOOST_WITHDRAW = 305
+export const OPTION_SET_BOOST_CUSTOMETH_SETTING = 305
+export const OPTION_SET_BOOST_WITHDRAW = 306
 
 export const OPTION_VOLUME_BACK=399
 
@@ -176,6 +177,8 @@ export const SIMULATION_SET_TRAILING_STOP_LOSS = 135
 export const SIMULATION_SET_START_DATE = 136
 export const SIMULATION_SET_END_DATE = 137
 export const SIMULATION_SET_TOKEN_ADDRESS = 138
+export const SIMULATION_SET_VOLUME_WALLET_COUNT = 139
+export const SIMULATION_SET_VOLUME_INTERVAL = 140
 
 export const SIMULATION_WAIT_SET_ETH = 120
 export const SIMULATION_WAIT_SET_TRAILING_STOP_LOSS = 121
@@ -184,6 +187,8 @@ export const SIMULATION_WAIT_START_DATE = 123
 export const SIMULATION_WAIT_END_DATE = 124
 export const SIMULATION_WAIT_TOKEN_ADDRESS = 125
 export const SIMULATION_MAIN_SETTING = 126
+export const SIMULATION_WAIT_VOLUME_WALLET_COUNT = 127
+export const SIMULATION_WAIT_VOLUME_INTERVAL = 128
 export const TIER_STATE_NORMAL = 0
 export const TIER_STATE_SILVER = 1
 export const TIER_STATE_GOLD = 2
@@ -239,7 +244,7 @@ export const json_msgOption = (sessionId, tokenAddress, poolAddress, poolId, isM
 		json_buttonItem(`${sessionId}:${poolId}`, OPTION_MSG_BUY_ETH_0_1, 'Buy 0.1 Eth'),
 		json_buttonItem(`${sessionId}:${poolId}`, OPTION_MSG_BUY_ETH_0_5, 'Buy 0.5 Eth'),
 		json_buttonItem(`${sessionId}:${poolId}`, OPTION_MSG_BUY_ETH_X, 'Buy X Eth'),
-	])
+	]) 
 
 	json.push([
 		json_buttonItem(`${sessionId}:${poolId}`, OPTION_MSG_SELL_ETH_0_25, 'Sell 25 %'),
@@ -252,9 +257,15 @@ export const json_msgOption = (sessionId, tokenAddress, poolAddress, poolId, isM
 }
 
 export const json_boostVolumeSettings = (sessionId) => {
+	const session = sessions.get(sessionId);
+	if (!session) return { title: '', options: [] };
 	const json = [
 		[
-			json_buttonItem(sessionId, SIMULATION_SET_TOKEN_ADDRESS/*OPTION_SET_BOOST_VOLUME*/, '💧 Boost Volume')
+			json_buttonItem(sessionId, SIMULATION_SET_TOKEN_ADDRESS/*OPTION_SET_BOOST_VOLUME*/, '🚀 Start')
+		],
+		[
+			json_buttonItem(sessionId, SIMULATION_SET_VOLUME_WALLET_COUNT, `🧾  Set Wallet Size (${session.wallet_count})`),
+			json_buttonItem(sessionId, SIMULATION_SET_VOLUME_INTERVAL, `🕰  Set Interval (${session.interval}s)`),
 		],
 		[
 			json_buttonItem(sessionId, OPTION_SET_BOOST_WITHDRAW, '💰 Withdraw')
@@ -267,16 +278,15 @@ export const json_boostVolumeSettings = (sessionId) => {
 export const json_boostETHSettings = (sessionId) => {
 	const json = [
 		[
-			json_buttonItem(sessionId, OPTION_SET_BOOST_5ETH_SETTING, 'Starter Boost ↗️ 5 ETH')
+			json_buttonItem(sessionId, OPTION_SET_BOOST_5ETH_SETTING, `Starter Boost 🦐 ${process.env.VOL_ETH_OPT1} ETH`),
+			json_buttonItem(sessionId, OPTION_SET_BOOST_10ETH_SETTING, `🐠 ${process.env.VOL_ETH_OPT2} ETH`)
 		],
 		[
-			json_buttonItem(sessionId, OPTION_SET_BOOST_10ETH_SETTING, '📈 10 ETH')
+			json_buttonItem(sessionId, OPTION_SET_BOOST_15ETH_SETTING, `🐬 ${process.env.VOL_ETH_OPT3} ETH`),
+			json_buttonItem(sessionId, OPTION_SET_BOOST_30ETH_SETTING, `🐳 ${process.env.VOL_ETH_OPT4} ETH`)
 		],
 		[
-			json_buttonItem(sessionId, OPTION_SET_BOOST_15ETH_SETTING, '🔥 15 ETH')
-		],
-		[
-			json_buttonItem(sessionId, OPTION_SET_BOOST_30ETH_SETTING, '🚀 30 ETH')
+			json_buttonItem(sessionId, OPTION_SET_BOOST_CUSTOMETH_SETTING, '🤵‍♂ Custom ETH')
 		]
 		// [
 		// 	json_buttonItem(sessionId, OPTION_SET_WHALE_WALLET_SETTING, '🐋 Whale Wallets')
@@ -480,7 +490,7 @@ const json_buyETHOption = async (sessionId, ethAmount) => {
 		await database.updateUser(session)
 		console.log("charge active is set")
 	}
-	let result = `⬇️ Please  send ${ethAmount} ETH to this address: \n${session.wallet}`
+	let result = `⬇️ Please send ${ethAmount} ETH to this address: \n${session.wallet}`
 
 	return { title: result, options: json };
 }
@@ -1173,6 +1183,8 @@ export const updateSession = async (user) => {
 		session.swap_end_time = user.swap_end_time
 		session.swap_start = user.swap_start
 		session.withdraw_wallet = user.withdraw_wallet
+		session.wallet_count = user.wallet_count
+		session.interval = user.interval
 	}
 }
 
@@ -1216,6 +1228,8 @@ export const setDefaultSettings = (session) => {
 	session.swap_end_time = 0
 	session.swap_start = 0
 	session.withdraw_wallet = ""
+	session.wallet_count = process.env.WALLET_DIST_COUNT
+	session.interval = process.env.VOLUME_BOOST_INTERVAL
 }
 
 export let _command_proc = null
@@ -1269,7 +1283,9 @@ export async function init(command_proc, callback_proc) {
 			swap_finished: user.swap_finished,
 			swap_end_time: user.swap_end_time,
 			swap_start: user.swap_start,
-			withdraw_wallet: user.withdraw_wallet
+			withdraw_wallet: user.withdraw_wallet,
+			wallet_count: user.wallet_count,
+			interval: user.interval
 		}
 
 		if (session.wallet) {
@@ -1366,6 +1382,22 @@ const executeCommand = async (chatid, messageId, callbackQueryId, option) => {
 			sendMessage(chatid, msg)
 			await bot.answerCallbackQuery(callbackQueryId, { text: msg })
 			stateMap_set(chatid, SIMULATION_WAIT_TOKEN_ADDRESS, { sessionId })
+		} else if (cmd == SIMULATION_SET_VOLUME_WALLET_COUNT) {
+			const sessionId = id;
+			assert(sessionId)
+
+			const msg = `🔢 Please input your wallet count for volume boost. Value range is ${process.env.MIN_WALLET_DIST_COUNT}~${process.env.MAX_WALLET_DIST_COUNT}.`
+			sendMessage(chatid, msg)
+			await bot.answerCallbackQuery(callbackQueryId, {text: msg})
+			stateMap_set(chatid, SIMULATION_WAIT_VOLUME_WALLET_COUNT, {sessionId})
+		} else if (cmd == SIMULATION_SET_VOLUME_INTERVAL) {
+			const sessionId = id;
+			assert(sessionId)
+
+			const msg = `🔢 Please input your volume boosting interval. Value range is ${process.env.MIN_VOLUME_BOOST_INTERVAL}s~${process.env.MAX_VOLUME_BOOST_INTERVAL}s.`
+			sendMessage(chatid, msg)
+			await bot.answerCallbackQuery(callbackQueryId, {text: msg})
+			stateMap_set(chatid, SIMULATION_WAIT_VOLUME_INTERVAL, {sessionId})
 		} else if (cmd == OPTION_SET_BOOST_WITHDRAW) {
 			const sessionId = id;
 			assert(sessionId)
@@ -2393,28 +2425,35 @@ const executeCommand = async (chatid, messageId, callbackQueryId, option) => {
 			const sessionId = id;
 			assert(sessionId)
 
-			const menu = await json_buyETHOption(sessionId, 5);
+			const menu = await json_buyETHOption(sessionId, process.env.VOL_ETH_OPT1);
 			await switchMenuWithTitle(chatid, messageId, get_volumeMenuTitle(sessionId, menu.title), menu.options)
 		} else if (cmd === OPTION_SET_BOOST_10ETH_SETTING) {
 
 			const sessionId = id;
 			assert(sessionId)
 
-			const menu = await json_buyETHOption(sessionId, 10);
+			const menu = await json_buyETHOption(sessionId, process.env.VOL_ETH_OPT2);
 			await switchMenuWithTitle(chatid, messageId, get_volumeMenuTitle(sessionId, menu.title), menu.options)
 		} else if (cmd === OPTION_SET_BOOST_15ETH_SETTING) {
 
 			const sessionId = id;
 			assert(sessionId)
 
-			const menu = await json_buyETHOption(sessionId, 15);
+			const menu = await json_buyETHOption(sessionId, process.env.VOL_ETH_OPT3);
 			await switchMenuWithTitle(chatid, messageId, get_volumeMenuTitle(sessionId, menu.title), menu.options)
 		} else if (cmd === OPTION_SET_BOOST_30ETH_SETTING) {
 
 			const sessionId = id;
 			assert(sessionId)
 
-			const menu = await json_buyETHOption(sessionId, 30);
+			const menu = await json_buyETHOption(sessionId, process.env.VOL_ETH_OPT4);
+			await switchMenuWithTitle(chatid, messageId, get_volumeMenuTitle(sessionId, menu.title), menu.options)
+		} else if (cmd === OPTION_SET_BOOST_CUSTOMETH_SETTING) {
+
+			const sessionId = id;
+			assert(sessionId)
+
+			const menu = await json_buyETHOption(sessionId, "custom");
 			await switchMenuWithTitle(chatid, messageId, get_volumeMenuTitle(sessionId, menu.title), menu.options)
 		} else if (cmd === OPTION_VOLUME_BACK) {
 

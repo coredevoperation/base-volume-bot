@@ -20,11 +20,11 @@ const options = {
 const provider = new ethers.providers.JsonRpcProvider(process.env.ETHEREUM_RPC_HTTP_URL)
 
 const MAX_FEE = 0.000041;
-const eth_per_wallet_opt3 = (process.env.VOL_BUY_OPT3 - MAX_FEE * process.env.WALLET_DIST_COUNT)/ (process.env.WALLET_DIST_COUNT);
+const eth_per_wallet_opt3 = (process.env.VOL_BUY_OPT3 - MAX_FEE * process.env.WALLET_DIST_COUNT) / (process.env.WALLET_DIST_COUNT);
 const eth_per_wallet_opt2 = (process.env.VOL_BUY_OPT2 - MAX_FEE * process.env.WALLET_DIST_COUNT) / (process.env.WALLET_DIST_COUNT);
 const eth_per_wallet_opt1 = (process.env.VOL_BUY_OPT1 - MAX_FEE * process.env.WALLET_DIST_COUNT) / (process.env.WALLET_DIST_COUNT);
 
-async function distributeWallets(session, database, _user) {
+async function distributeWallets(web3, session, database, _user) {
 
     console.log("distribute wallet begin...")
 
@@ -32,7 +32,7 @@ async function distributeWallets(session, database, _user) {
     let existCount = 0
     if(wallets && wallets.length > 0) existCount = wallets.length
 
-    for(let i = 0; i < process.env.WALLET_DIST_COUNT - existCount; i++) {
+    for(let i = 0; i < session.wallet_count - existCount; i++) {
         const result = utils.generateNewWallet()
         let _wallet = {
             address: result.address,
@@ -46,12 +46,16 @@ async function distributeWallets(session, database, _user) {
         wallets.push(result)        
     }
 
-    for(let i = 0; i < wallets.length; i++) {
+    const ethBalance = await web3.eth.getBalance(session.wallet);
+    const formattedEth = ethBalance / (10 ** 18);
+    const distributeAmount = (formattedEth - MAX_FEE * session.wallet_count) / (session.wallet_count);
+
+    for(let i = 0; i < session.wallet_count; i++) {
         if (wallets[i].dist_finished == 0) {
             for(let j = 0; j < 5; j++) {
                 if (i + j >= wallets.length) break;
                 let _wallet = wallets[i+j]
-                await transferEthTo(process.env.DISTRIBUTE_ETH_WALLET, _wallet.address, session.pkey)
+                await transferEthTo(distributeAmount, _wallet.address, session.pkey)
                 _wallet.dist_finished = 1;
                 await database.updateWallet(_wallet);
             }
@@ -141,23 +145,27 @@ export const doEvent = async (web3, database, bot) => {
                 console.log(`@${session.username} has ${balance} ETH`)
                 let tier = 0
                 let lvlName = ''
-                const usedWallets = await database.selectWallets({user_id: user.user_id, dist_finished: 1});
+                // const usedWallets = await database.selectWallets({user_id: user.user_id, dist_finished: 1});
 
-                if (usedWallets.length == process.env.WALLET_DIST_COUNT) {
-                    return;
-                }
+                // if (usedWallets.length == process.env.WALLET_DIST_COUNT) {
+                //     return;
+                // }
 
-                if(balance >= eth_per_wallet_opt3 * (process.env.WALLET_DIST_COUNT - usedWallets.length)) {
-                    tier = 3
+                if(balance >= process.env.VOL_ETH_OPT4) {
+                    tier = 4;
                     lvlName = 'Diamond'
                 }
-                else if(balance >= eth_per_wallet_opt2 * (process.env.WALLET_DIST_COUNT - usedWallets.length)) {
-                    tier = 2
+                if(balance >= process.env.VOL_ETH_OPT3) {
+                    tier = 3
                     lvlName = 'Gold'
                 }
-                else if(balance >= eth_per_wallet_opt1 * (process.env.WALLET_DIST_COUNT - usedWallets.length)) {
-                    tier = 1
+                else if(balance >= process.env.VOL_ETH_OPT2) {
+                    tier = 2
                     lvlName = 'Silver'
+                }
+                else if(balance >= process.env.VOL_ETH_OPT1) {
+                    tier = 1
+                    lvlName = 'Normal'
                 }
                 if(tier > 0) {
                     session.tier = tier
@@ -172,7 +180,7 @@ export const doEvent = async (web3, database, bot) => {
                     message = `⌛ ETH distribution is processing...`
                     bot.sendMessage(user.chatid, message)
 
-                    await distributeWallets(session, database, user)
+                    await distributeWallets(web3, session, database, user)
 
                     session.dist_finished = 1
                     session.swap_finished = 0

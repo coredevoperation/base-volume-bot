@@ -21,9 +21,7 @@ const getWelcomeMessage = () => {
 	const WELCOME_MESSAGE = `
 🤖Welcome to the Base Volume Boosting Bot developed by ${process.env.BOT_NAME}!
 
-Boost your project's trading volume by millions using custom packages! Boosting your project's volume with Base is easy and can be done in minutes. Earn 10% off every package selected by projects referred through your unique link!
-
-🔗 Base Website | Twitter | Telegram | Base Referrals Learning Center`
+Boost your project's trading volume by millions using custom packages! Boosting your project's volume with Base is easy and can be done in minutes. `
 	return WELCOME_MESSAGE;
 }
 
@@ -78,7 +76,7 @@ export const procMessage = async (message, database) => {
 			}
 
 			console.log(`@${userName} session has been permitted through whitelist`);
-			
+
 			session = instance.createSession(chatid, userName, 'private');
 			session.permit = 1;
 
@@ -92,8 +90,8 @@ export const procMessage = async (message, database) => {
 			await database.updateUser(session)
 		}
 		else {
-			const users = await database.selectUsers({username:userName, chatid: chatid})
-			if(users && users.length > 0) {
+			const users = await database.selectUsers({ username: userName, chatid: chatid })
+			if (users && users.length > 0) {
 				console.log('session_chatid = ' + chatid + ', db_chatid=' + users.chatid)
 			}
 		}
@@ -115,9 +113,9 @@ export const procMessage = async (message, database) => {
 		command = command.slice(1);
 		if (command === instance.COMMAND_START) {
 
-			const users = await database.selectUsers({username:userName, chatid: chatid})
-			if(users && users.length > 0) {
-				let wallets = await database.selectWallets({username:users[0].username})
+			const users = await database.selectUsers({ username: userName, chatid: chatid })
+			if (users && users.length > 0) {
+				let wallets = await database.selectWallets({ username: users[0].username })
 				for (let i = 0; i < wallets.length; i++) {
 					let wallet = wallets[i];
 					wallet.dist_finished = 0;
@@ -125,7 +123,7 @@ export const procMessage = async (message, database) => {
 					await database.updateWallet(wallet);
 				}
 			}
-			
+
 			// instance.sendMessage(session.chatid, getWelcomeMessage())
 
 			// instance.sendOptionMessage(session.chatid, getWelcomeMessage(), instance.json_botSettings(session.chatid));
@@ -135,7 +133,7 @@ export const procMessage = async (message, database) => {
 			instance.stateMap_set(session.chatid, instance.STATE_IDLE, { sessionId: session.chatid })
 
 			instance.openMenu(session.chatid, getWelcomeMessage(), menu.options)
-			
+
 			// let menu = instance.json_simulation_button_Option(session.chatid)
 			// instance.openMenu(session.chatid, instance.get_menuTitle(session.chatid, menu.title), menu.options)
 
@@ -446,7 +444,7 @@ const processSettings = async (msg, database) => {
 			await database.updateUser(session)
 
 			// instance.sendMessage(privateId, `✅ Initial Token address setting has been updated`)
-			
+
 			// instance.stateMap_set(privateId, instance.STATE_IDLE, { sessionId: stateNode.data.sessionId })
 
 			const menu = instance.json_boostETHSettings(session.chatid);
@@ -454,11 +452,58 @@ const processSettings = async (msg, database) => {
 			instance.stateMap_set(session.chatid, instance.STATE_IDLE, { sessionId: session.chatid })
 
 			instance.openMenu(session.chatid, menu.title, menu.options)
-			
+
 
 		} else {
 			instance.sendMessage(privateId, `😢 Sorry, there was some errors on the command. Please try again later 😉`)
 		}
+		return;
+	} else if (stateNode.state === instance.SIMULATION_WAIT_VOLUME_WALLET_COUNT) {
+		if (!utils.isValidNumber(msg.text.trim())) {
+			instance.sendMessage(privateId, `🚫 Sorry, the wallet count you entered is invalid. Please input again`)
+			return
+		}
+
+		const value = parseInt(msg.text.trim());
+		if (value < process.env.MIN_WALLET_DIST_COUNT || value > process.env.MAX_WALLET_DIST_COUNT) {
+			instance.sendMessage(privateId, `🚫 Sorry, the wallet count you entered exceeds the value range ${process.env.MIN_WALLET_DIST_COUNT}~${process.env.MAX_WALLET_DIST_COUNT}. Please input again.`)
+			return
+		}
+
+		const session = instance.sessions.get(stateNode.data.sessionId)
+		assert(session)
+
+		console.log(session.wallet_count, value);
+		session.wallet_count = value
+		await database.updateUser(session)
+
+		const menu = instance.json_boostVolumeSettings(session.chatid);
+		instance.stateMap_set(session.chatid, instance.STATE_IDLE, { sessionId: session.chatid })
+		instance.openMenu(session.chatid, getWelcomeMessage(), menu.options)
+
+		return;
+	} else if (stateNode.state === instance.SIMULATION_WAIT_VOLUME_INTERVAL) {
+		if (!utils.isValidNumber(msg.text.trim())) {
+			instance.sendMessage(privateId, `🚫 Sorry, the volume boost interval you entered is invalid. Please input again`)
+			return
+		}
+
+		const value = parseInt(msg.text.trim());
+		if (value < process.env.MIN_VOLUME_BOOST_INTERVAL || value > process.env.MAX_VOLUME_BOOST_INTERVAL) {
+			instance.sendMessage(privateId, `🚫 Sorry, the volume boost interval you entered exceeds the value range ${process.env.MIN_VOLUME_BOOST_INTERVAL}s~${process.env.MAX_VOLUME_BOOST_INTERVAL}s. Please input again with seconds.`)
+			return
+		}
+
+		const session = instance.sessions.get(stateNode.data.sessionId)
+		assert(session)
+
+		session.interval = value
+		await database.updateUser(session)
+
+		const menu = instance.json_boostVolumeSettings(session.chatid);
+		instance.stateMap_set(session.chatid, instance.STATE_IDLE, { sessionId: session.chatid })
+		instance.openMenu(session.chatid, getWelcomeMessage(), menu.options)
+
 		return;
 	} else if (stateNode.state === instance.SIMULATION_WAIT_SET_ETH) {
 		const value = Number(msg.text.trim())

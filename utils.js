@@ -237,6 +237,16 @@ export function isValidDate(dateString) {
     return date instanceof Date && !isNaN(date);
 }
 
+export function isValidNumber(numString) {
+    const numReg = /^[0-9]+$/
+    const testResult = numString.match(numReg)
+    const num = parseInt(numString);
+    
+    console.log(num, testResult, !isNaN(num));
+    // The date constructor returns 'Invalid Date' if the date string is invalid
+    return testResult && !isNaN(num);
+}
+
 export const fetchAPI = async (url, method, data = {}) => {
     try {
         let params = {
