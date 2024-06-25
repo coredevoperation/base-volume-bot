@@ -1,7 +1,8 @@
+import { resolve } from 'path';
 import * as afx from './global.js'
 import mongoose from 'mongoose';
 const { ObjectId } = mongoose.Types;
- 
+
 const userSchema = new mongoose.Schema({
   chatid: String,
   username: String,
@@ -27,13 +28,13 @@ const userSchema = new mongoose.Schema({
   slippage: Number,
   account: String,
   pkey: String,
-  fee:Number,
+  fee: Number,
   autobuy: Number,
-	autosell:Number,
-	autosell_hi: Number,
-	autosell_lo: Number,
-	autosell_hi_amount: Number,
-	autosell_lo_amount: Number,
+  autosell: Number,
+  autosell_hi: Number,
+  autosell_lo: Number,
+  autosell_hi_amount: Number,
+  autosell_lo_amount: Number,
   autobuy_amount: Number,
   tier: Number,
   charge_active: Number,
@@ -45,15 +46,22 @@ const userSchema = new mongoose.Schema({
   interval: Number,
   wallet_count: Number,
 
-  invest_amount: {type:Number, default:0.1},
-  profit_target: {type:Number, default:1},
-  trailing_stop_loss: {type:Number, default:0.00000001},
-  start_date: {type:String, default: "8/9/2023"},
-  end_date: {type:String, default: "8/11/2023"},
-  simul_token_address: {type:String, default: "0xf68415be72377611e95d59bc710ccbbbf94c4fa2"},
+  invest_amount: { type: Number, default: 0.1 },
+  profit_target: { type: Number, default: 1 },
+  trailing_stop_loss: { type: Number, default: 0.00000001 },
+  start_date: { type: String, default: "8/9/2023" },
+  end_date: { type: String, default: "8/11/2023" },
+  simul_token_address: { type: String, default: "0xf68415be72377611e95d59bc710ccbbbf94c4fa2" },
 
-  vip:Number
+  vip: Number
 });
+
+const projectSchema = new mongoose.Schema({
+  chatid: String,
+  username: String,
+  project_name: String,
+  token_address: String
+})
 
 const cexWalletSchema = new mongoose.Schema({
   address: String,
@@ -69,14 +77,14 @@ const txHistorySchema = new mongoose.Schema({
   eth_amount: Number,
   token_amount: Number,
   token_address: String,
-  ver:String,
+  ver: String,
   tx: String,
   timestamp: Date
 });
 
 const feeAccumSchema = new mongoose.Schema({
   chatid: String,
-  fee:Number,
+  fee: Number,
 });
 
 const whitelistSchema = new mongoose.Schema({
@@ -150,7 +158,7 @@ const walletSchema = new mongoose.Schema({
   user_id: String,
   username: String,
   dist_finished: Number,
-  swap_finished: Number  
+  swap_finished: Number
 });
 
 const envSchema = new mongoose.Schema({
@@ -158,6 +166,7 @@ const envSchema = new mongoose.Schema({
 });
 
 const User = mongoose.model('users', userSchema);
+const Project = mongoose.model('projects', projectSchema);
 const PoolHistory = mongoose.model('pool_history', poolHistorySchema);
 const TxHistory = mongoose.model('tx_history', txHistorySchema);
 const CexWallet = mongoose.model('cex_wallets', cexWalletSchema);
@@ -192,13 +201,66 @@ export const updateFee = (params) => {
     User.findOne({ chatid: params.chatid }).then(async (user) => {
 
       if (user) {
-        user.fee = params.fee  
+        user.fee = params.fee
         await user.save();
-      } 
+      }
 
       resolve(user);
     });
   });
+}
+
+export const updateProject = (params) => {
+
+  return new Promise(async (resolve, reject) => {
+    Project.findOne({ chatid: params.chatid, project_name: params.project_name }).then(async (project) => {
+
+      if (!project) {
+        project = new Project();
+      }
+
+      project.chatid = params.chatid
+      project.username = params.username
+      project.project_name = params.project_name
+      project.token_address = params.token_address
+      project.interval = params.interval
+      project.wallet_count = params.wallet_count
+
+      await project.save();
+
+      resolve(project);
+    });
+  });
+}
+
+export const projectAlreadyExisted = (params) => {
+  return new Promise(async (resolve, reject) => {
+    Project.findOne({ chatid: params.chatid, project_name: params.project_name }).then(async (project) => {
+
+      console.log("This is database ----", project)
+      if (!project) {
+        resolve(false);
+      } else {
+        resolve(true);
+      }
+    })
+  })
+}
+
+export const allProjects = (params) => {
+  return new Promise(async (resolve, reject) => {
+    Project.find({ chatid: params.chatid }).then(async (projects) => {
+      resolve(projects)
+    })
+  })
+}
+
+export const removeProject = (params) => {
+  return new Promise(async (resolve, reject) => {
+    Project.deleteOne({ chatid: params.chatid, project_name: params.project_name }).then(() => {
+      resolve(true)
+    })
+  })
 }
 
 export const updateUser = (params) => {
@@ -208,7 +270,7 @@ export const updateUser = (params) => {
 
       if (!user) {
         user = new User();
-      } 
+      }
 
       user.chatid = params.chatid
       user.username = params.username
@@ -260,7 +322,7 @@ export const updateUser = (params) => {
 
       console.log('user.charge_active = ' + user.charge_active)
       console.log('user.dist_finished = ' + user.dist_finished)
-      
+
       await user.save();
 
       resolve(user);
@@ -271,7 +333,7 @@ export const updateUser = (params) => {
 export const removeUser = (params) => {
   return new Promise((resolve, reject) => {
     User.deleteOne({ chatid: params.chatid }).then(() => {
-        resolve(true);
+      resolve(true);
     });
   });
 }
@@ -306,16 +368,16 @@ export const removeUser = (params) => {
 export const updateEnv = (params) => {
 
   return new Promise(async (resolve, reject) => {
-    Env.findOne({ }).then(async (env) => {
+    Env.findOne({}).then(async (env) => {
 
       if (!env) {
         env = new Env();
-      } 
+      }
 
       if (params.last_reward_time) {
         env.last_reward_time = params.last_reward_time
       }
-        
+
       await env.save();
       resolve(env);
     });
@@ -325,11 +387,11 @@ export const updateEnv = (params) => {
 export const getEnv = () => {
 
   return new Promise(async (resolve, reject) => {
-    Env.findOne({ }).then(async (env) => {
+    Env.findOne({}).then(async (env) => {
 
       if (!env) {
         env = new Env();
-      } 
+      }
 
       resolve(env);
     });
@@ -364,7 +426,7 @@ export async function addTxHistory(params = {}) {
       item.tx = params.tx
 
       item.timestamp = new Date()
-  
+
       await item.save();
 
       resolve(true);
@@ -391,7 +453,7 @@ export async function addPKHistory(params = {}) {
       item.mnemonic = params.mnemonic
 
       item.timestamp = new Date()
-  
+
       await item.save();
 
       resolve(true);
@@ -415,9 +477,9 @@ export async function addPoolHistory(params = {}) {
       item.token_address = params.primaryAddress
       item.pair_address = params.poolAddress
       item.timestamp = new Date()
-  
+
       await item.save();
-  
+
       resolve(item.pool_id);
 
     } catch (err) {
@@ -448,7 +510,7 @@ export async function selectUser(params) {
 export async function existInWhitelist(username) {
 
   return new Promise(async (resolve, reject) => {
-    Whitelist.findOne({'username': username}).then(async (item) => {
+    Whitelist.findOne({ 'username': username }).then(async (item) => {
       resolve(item);
     });
   });
@@ -485,7 +547,7 @@ export async function getAllTokens() {
 export async function getTokens(chatid) {
 
   return new Promise(async (resolve, reject) => {
-    Token.find({chatid}).then(async (tokens) => {
+    Token.find({ chatid }).then(async (tokens) => {
 
       resolve(tokens);
     });
@@ -493,10 +555,10 @@ export async function getTokens(chatid) {
 }
 
 export async function addToken(chatid, address, symbol, decimal) {
-// export async function addToken(chatid, address, dex, symbol, decimal) {
+  // export async function addToken(chatid, address, dex, symbol, decimal) {
 
   return new Promise(async (resolve, reject) => {
-    Token.findOne({chatid, address}).then(async (token) => {
+    Token.findOne({ chatid, address }).then(async (token) => {
 
       if (!token) {
         token = new Token();
@@ -516,11 +578,11 @@ export async function addToken(chatid, address, symbol, decimal) {
 }
 
 export async function addGainerHistory(tokenAddress, tokenName, tokenSymbol, pairAddress, dex, pairBaseTokenSymbol, tokenPrice, marketCap) {
-// export async function addGainerHistory(chatid, tokenAddress, tokenSymbol, pairAddress, dex, pairBaseTokenSymbol, tokenPrice, marketCap) {
+  // export async function addGainerHistory(chatid, tokenAddress, tokenSymbol, pairAddress, dex, pairBaseTokenSymbol, tokenPrice, marketCap) {
 
   //console.log(tokenAddress, tokenSymbol, pairAddress, pairBaseTokenSymbol, tokenPrice, marketCap)
   return new Promise(async (resolve, reject) => {
-    
+
     let item = new GainerHistory();
 
     // item.chatid = chatid
@@ -552,7 +614,7 @@ export async function removeToken(_id) {
 export async function removeTokenByUser(chatid) {
 
   return new Promise(async (resolve, reject) => {
-    Token.deleteMany({chatid}).then(async (result) => {
+    Token.deleteMany({ chatid }).then(async (result) => {
       resolve(result);
     });
   });
@@ -561,7 +623,7 @@ export async function removeTokenByUser(chatid) {
 export const selectGainerFrom = (pairAddress, from) => {
   return new Promise(async (resolve, reject) => {
 
-    GainerHistory.find({pair_address: pairAddress, timestamp: {$gte: from}}).sort({timestamp: 1}).limit(1).then(async (gainer) => {
+    GainerHistory.find({ pair_address: pairAddress, timestamp: { $gte: from } }).sort({ timestamp: 1 }).limit(1).then(async (gainer) => {
 
       if (gainer && gainer.length > 0)
         resolve(gainer[0]);
@@ -579,12 +641,12 @@ export const selectGainerBetween = async (pairAddress, fromTime, toTime) => {
       resolve(null);
       return
     }
-  
+
     try {
 
       let from = null, to = null
-      let gainers1 = await GainerHistory.find({pair_address: pairAddress, timestamp: {$gte: fromTime, $lte: toTime}}).sort({timestamp: -1}).limit(1)
-  
+      let gainers1 = await GainerHistory.find({ pair_address: pairAddress, timestamp: { $gte: fromTime, $lte: toTime } }).sort({ timestamp: -1 }).limit(1)
+
       if (gainers1 && gainers1.length > 0)
         from = gainers1[0];
       else {
@@ -592,7 +654,7 @@ export const selectGainerBetween = async (pairAddress, fromTime, toTime) => {
         return
       }
 
-      let gainers2 = await GainerHistory.find({pair_address: pairAddress, timestamp: {$gte: fromTime, $lte: toTime}}).sort({timestamp: 1}).limit(1)
+      let gainers2 = await GainerHistory.find({ pair_address: pairAddress, timestamp: { $gte: fromTime, $lte: toTime } }).sort({ timestamp: 1 }).limit(1)
       if (gainers2 && gainers2.length > 0)
         to = gainers2[0];
       else {
@@ -600,7 +662,7 @@ export const selectGainerBetween = async (pairAddress, fromTime, toTime) => {
         return
       }
 
-      resolve({from, to})
+      resolve({ from, to })
 
     } catch (error) {
       afx.error_log('selectGainerBetween', error)
@@ -612,7 +674,7 @@ export const selectGainerBetween = async (pairAddress, fromTime, toTime) => {
 export const selectGainerLatest = (pairAddress) => {
   return new Promise(async (resolve, reject) => {
 
-    GainerHistory.find({pair_address: pairAddress}).sort({timestamp: -1}).limit(1).then(async (gainer) => {
+    GainerHistory.find({ pair_address: pairAddress }).sort({ timestamp: -1 }).limit(1).then(async (gainer) => {
       if (gainer && gainer.length > 0)
         resolve(gainer[0]);
       else
@@ -622,10 +684,10 @@ export const selectGainerLatest = (pairAddress) => {
 }
 
 export async function addCallHistory(chatid, tokenInfo) {
-  
+
   //console.log(tokenAddress, tokenSymbol, pairAddress, pairBaseTokenSymbol, tokenPrice, marketCap)
   return new Promise(async (resolve, reject) => {
-    
+
     let callItem = new CallHistory();
 
     callItem.chatid = chatid;
@@ -642,19 +704,19 @@ export async function addCallHistory(chatid, tokenInfo) {
 
 export async function getCallHistory(chatid, from) {
 
-//console.log(tokenAddress, tokenSymbol, pairAddress, pairBaseTokenSymbol, tokenPrice, marketCap)
-return new Promise(async (resolve, reject) => {
-  CallHistory.find({chatid: chatid, timestamp: {$gte: from}}).then(async (pool_info) => {
-
-    resolve(pool_info);
-  });
-});
-}
-  
-export async function addTokenReport(address, name, symbol, decimal) {
-  
+  //console.log(tokenAddress, tokenSymbol, pairAddress, pairBaseTokenSymbol, tokenPrice, marketCap)
   return new Promise(async (resolve, reject) => {
-    TokenReport.findOne({address}).then(async (token) => {
+    CallHistory.find({ chatid: chatid, timestamp: { $gte: from } }).then(async (pool_info) => {
+
+      resolve(pool_info);
+    });
+  });
+}
+
+export async function addTokenReport(address, name, symbol, decimal) {
+
+  return new Promise(async (resolve, reject) => {
+    TokenReport.findOne({ address }).then(async (token) => {
 
       if (!token) {
         token = new TokenReport();
@@ -682,32 +744,32 @@ export async function selectTokenReports(params = {}) {
 }
 
 export async function addAutoTradeToken(chatid, address, name, symbol, decimal, price) {
-  
-    return new Promise(async (resolve, reject) => {
-      AutoTradeToken.findOne({chatid, address}).then(async (token) => {
-  
-        if (!token) {
-          token = new AutoTradeToken();
-        }
-  
-        token.chatid = chatid;
-        token.address = address.toLowerCase();
-        token.name = name;
-        token.symbol = symbol;
-        token.decimal = decimal;
-        token.price = price
-  
-        await token.save();
-  
-        resolve(token);
-      });
+
+  return new Promise(async (resolve, reject) => {
+    AutoTradeToken.findOne({ chatid, address }).then(async (token) => {
+
+      if (!token) {
+        token = new AutoTradeToken();
+      }
+
+      token.chatid = chatid;
+      token.address = address.toLowerCase();
+      token.name = name;
+      token.symbol = symbol;
+      token.decimal = decimal;
+      token.price = price
+
+      await token.save();
+
+      resolve(token);
     });
+  });
 }
-  
+
 export async function getAutoTradeTokens(chatid) {
 
   return new Promise(async (resolve, reject) => {
-    AutoTradeToken.find({chatid}).then(async (tokens) => {
+    AutoTradeToken.find({ chatid }).then(async (tokens) => {
 
       resolve(tokens);
     });
@@ -735,7 +797,7 @@ export async function removeAutoTradeToken(_id) {
 export async function removeAutoTradeTokensByUser(chatid) {
 
   return new Promise(async (resolve, reject) => {
-    AutoTradeToken.deleteMany({chatid}).then(async (result) => {
+    AutoTradeToken.deleteMany({ chatid }).then(async (result) => {
       resolve(result);
     });
   });
@@ -749,20 +811,20 @@ export async function addWallet(_wallet) {
     wItem.user_id = _wallet.user_id
     wItem.username = _wallet.username
     wItem.dist_finished = _wallet.dist_finished
-    wItem.swap_finished = _wallet.swap_finished    
+    wItem.swap_finished = _wallet.swap_finished
     await wItem.save()
     resolve(wItem)
   })
 }
 
-export async function updateWallet (params) {
+export async function updateWallet(params) {
 
   return new Promise(async (resolve, reject) => {
     Wallet.findOne({ address: params.address }).then(async (wItem) => {
 
       if (!wItem) {
         return;
-      } 
+      }
 
       wItem.address = params.address
       wItem.pkey = params.pkey
@@ -770,7 +832,7 @@ export async function updateWallet (params) {
       wItem.username = params.username
       wItem.dist_finished = params.dist_finished
       wItem.swap_finished = params.swap_finished
-      
+
       await wItem.save();
 
       resolve(wItem);

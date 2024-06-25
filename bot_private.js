@@ -15,7 +15,7 @@ topgainer - displays top gainers
 cancel - cancels subscription and logout
 
 */
-const getWelcomeMessage = () => {
+export const getWelcomeMessage = () => {
 
 	const communityTokenAmount = Number(instance.MIN_COMUNITY_TOKEN_AMOUNT)
 	const WELCOME_MESSAGE = `
@@ -113,26 +113,29 @@ export const procMessage = async (message, database) => {
 		command = command.slice(1);
 		if (command === instance.COMMAND_START) {
 
-			const users = await database.selectUsers({ username: userName, chatid: chatid })
-			if (users && users.length > 0) {
-				let wallets = await database.selectWallets({ username: users[0].username })
-				for (let i = 0; i < wallets.length; i++) {
-					let wallet = wallets[i];
-					wallet.dist_finished = 0;
-					wallet.swap_finished = 0;
-					await database.updateWallet(wallet);
-				}
-			}
-
-			// instance.sendMessage(session.chatid, getWelcomeMessage())
-
-			// instance.sendOptionMessage(session.chatid, getWelcomeMessage(), instance.json_botSettings(session.chatid));
-
-			const menu = instance.json_boostVolumeSettings(session.chatid);
+			// const users = await database.selectUsers({ username: userName, chatid: chatid })
+			// if (users && users.length > 0) {
+			// 	let wallets = await database.selectWallets({ username: users[0].username })
+			// 	for (let i = 0; i < wallets.length; i++) {
+			// 		let wallet = wallets[i];
+			// 		wallet.dist_finished = 0;
+			// 		wallet.swap_finished = 0;
+			// 		await database.updateWallet(wallet);
+			// 	}
+			// }
+			const menu = instance.json_projectSettings(session.chatid);
 
 			instance.stateMap_set(session.chatid, instance.STATE_IDLE, { sessionId: session.chatid })
 
 			instance.openMenu(session.chatid, getWelcomeMessage(), menu.options)
+
+			// instance.sendOptionMessage(session.chatid, getWelcomeMessage(), instance.json_botSettings(session.chatid));
+
+			// const menu = instance.json_boostVolumeSettings(session.chatid);
+
+			// instance.stateMap_set(session.chatid, instance.STATE_IDLE, { sessionId: session.chatid })
+
+			// instance.openMenu(session.chatid, getWelcomeMessage(), menu.options)
 
 			// let menu = instance.json_simulation_button_Option(session.chatid)
 			// instance.openMenu(session.chatid, instance.get_menuTitle(session.chatid, menu.title), menu.options)
@@ -329,97 +332,26 @@ const processSettings = async (msg, database) => {
 	let stateNode = instance.stateMap_get(privateId)
 	if (!stateNode)
 		return
-	if (stateNode.state === instance.SIMULATION_WAIT_END_DATE) {
+
+	if (stateNode.state === instance.STATE_WAIT_NEW_PROJECT_NAME) {
 		const value = msg.text.trim()
-		console.log(value)
-		try {
-			new Date(value)
-		} catch (error) {
-			instance.sendMessage(privateId, `🚫 Sorry, the value you entered is invalid. Please input again`)
-			return
-		}
+
+		console.log("New project name:", value)
+
 		const session = instance.sessions.get(stateNode.data.sessionId)
-		assert(session)
-
-		session.end_date = value
-
-		await database.updateUser(session)
-
-		instance.sendMessage(privateId, `✅ Initial End date setting has been updated`)
-
-		instance.stateMap_set(privateId, instance.STATE_IDLE, { sessionId: stateNode.data.sessionId })
-		return;
-	} else if (stateNode.state === instance.SIMULATION_WAIT_START_DATE) {
-		const value = msg.text.trim()
-		try {
-			new Date(value)
-		} catch (error) {
-			instance.sendMessage(privateId, `🚫 Sorry, the value you entered is invalid. Please input again`)
-			return
-		}
-		const session = instance.sessions.get(stateNode.data.sessionId)
-		assert(session)
-
-		session.start_date = value
-
-		await database.updateUser(session)
-
-		instance.sendMessage(privateId, `✅ Initial Start date setting has been updated`)
-
-		instance.stateMap_set(privateId, instance.STATE_IDLE, { sessionId: stateNode.data.sessionId })
-		return;
-	} else if (stateNode.state === instance.SIMULATION_WAIT_SET_PROFIT_TARGET) {
-		const value = Number(msg.text.trim())
-		if (value < 1 || value === undefined || isNaN(value)) {
-			instance.sendMessage(privateId, `🚫 Sorry, the value you entered is invalid. Please input again`)
+		
+		const result = await database.projectAlreadyExisted({ chatid: session.chatid, project_name: value });
+		console.log("validate result ---> ", result);
+		if (result) {
+			instance.sendMessage(privateId, `🚫 Sorry, the project name you entered is already existed. Please input again`)
 			return
 		}
 
-		const session = instance.sessions.get(stateNode.data.sessionId)
-		assert(session)
-
-		session.profit_target = value
-
-		await database.updateUser(session)
-
-		instance.sendMessage(privateId, `✅ Initial Profit target setting has been updated`)
-
-		instance.stateMap_set(privateId, instance.STATE_IDLE, { sessionId: stateNode.data.sessionId })
-		return;
-	} else if (stateNode.state === instance.SIMULATION_WAIT_SET_TRAILING_STOP_LOSS) {
-		const value = Number(msg.text.trim())
-		if (value <= 0 || value === undefined || isNaN(value)) {
-			instance.sendMessage(privateId, `🚫 Sorry, the value you entered is invalid. Please input again`)
-			return
-		}
-
-		const session = instance.sessions.get(stateNode.data.sessionId)
-		assert(session)
-
-		session.trailing_stop_loss = value
-
-		await database.updateUser(session)
-
-		instance.sendMessage(privateId, `✅ Initial Trailing stop loss setting has been updated`)
-
-		instance.stateMap_set(privateId, instance.STATE_IDLE, { sessionId: stateNode.data.sessionId })
-		return;
-	} else if (stateNode.state === instance.STATE_WAIT_WITHDRAW_ADDRESS) {
-		const value = msg.text.trim()
-		if (!utils.isValidWalletAddress(value)) {
-			instance.sendMessage(privateId, `🚫 Sorry, the address you entered is invalid. Please input again`)
-			return
-		}
-
-		const session = instance.sessions.get(stateNode.data.sessionId)
-		assert(session)
-
-		session.withdraw_wallet = value
-		await database.updateUser(session)
-
-		instance.stateMap_set(privateId, instance.STATE_IDLE, { sessionId: stateNode.data.sessionId })
+		session.new_project_name = value;
+		instance.sendMessage(privateId, `🖋Please input a token address for volume market making.🖋`)
+		instance.stateMap_set(privateId, instance.STATE_WAIT_NEW_PROJECT_TOKEN, { sessionId: stateNode.data.sessionId })
 		return
-	} else if (stateNode.state === instance.SIMULATION_WAIT_TOKEN_ADDRESS) {
+	} else if (stateNode.state === instance.STATE_WAIT_NEW_PROJECT_TOKEN) {
 		const value = msg.text.trim()
 		if (!utils.isValidAddress(value)) {
 			instance.sendMessage(privateId, `🚫 Sorry, the address you entered is invalid. Please input again`)
@@ -439,538 +371,25 @@ const processSettings = async (msg, database) => {
 			const session = instance.sessions.get(stateNode.data.sessionId)
 			assert(session)
 
-			session.simul_token_address = value
+			session.new_project_token = value;
 
-			await database.updateUser(session)
+			await database.updateProject({
+				chatid: session.chatid,
+				username: session.username,
+				project_name: session.new_project_name,
+				token_address: session.new_project_token,
+				interval: process.env.VOLUME_BOOST_INTERVAL,
+				wallet_count: process.env.WALLET_DIST_COUNT
+			})
 
-			// instance.sendMessage(privateId, `✅ Initial Token address setting has been updated`)
-
-			// instance.stateMap_set(privateId, instance.STATE_IDLE, { sessionId: stateNode.data.sessionId })
-
-			const menu = instance.json_boostETHSettings(session.chatid);
-
+			const menu = instance.json_boostVolumeSettings(session.chatid);
 			instance.stateMap_set(session.chatid, instance.STATE_IDLE, { sessionId: session.chatid })
-
-			instance.openMenu(session.chatid, menu.title, menu.options)
-
-
+			instance.openMenu(session.chatid, getWelcomeMessage(), menu.options)
 		} else {
 			instance.sendMessage(privateId, `😢 Sorry, there was some errors on the command. Please try again later 😉`)
 		}
 		return;
-	} else if (stateNode.state === instance.SIMULATION_WAIT_VOLUME_WALLET_COUNT) {
-		if (!utils.isValidNumber(msg.text.trim())) {
-			instance.sendMessage(privateId, `🚫 Sorry, the wallet count you entered is invalid. Please input again`)
-			return
-		}
-
-		const value = parseInt(msg.text.trim());
-		if (value < process.env.MIN_WALLET_DIST_COUNT || value > process.env.MAX_WALLET_DIST_COUNT) {
-			instance.sendMessage(privateId, `🚫 Sorry, the wallet count you entered exceeds the value range ${process.env.MIN_WALLET_DIST_COUNT}~${process.env.MAX_WALLET_DIST_COUNT}. Please input again.`)
-			return
-		}
-
-		const session = instance.sessions.get(stateNode.data.sessionId)
-		assert(session)
-
-		console.log(session.wallet_count, value);
-		session.wallet_count = value
-		await database.updateUser(session)
-
-		const menu = instance.json_boostVolumeSettings(session.chatid);
-		instance.stateMap_set(session.chatid, instance.STATE_IDLE, { sessionId: session.chatid })
-		instance.openMenu(session.chatid, getWelcomeMessage(), menu.options)
-
-		return;
-	} else if (stateNode.state === instance.SIMULATION_WAIT_VOLUME_INTERVAL) {
-		if (!utils.isValidNumber(msg.text.trim())) {
-			instance.sendMessage(privateId, `🚫 Sorry, the volume boost interval you entered is invalid. Please input again`)
-			return
-		}
-
-		const value = parseInt(msg.text.trim());
-		if (value < process.env.MIN_VOLUME_BOOST_INTERVAL || value > process.env.MAX_VOLUME_BOOST_INTERVAL) {
-			instance.sendMessage(privateId, `🚫 Sorry, the volume boost interval you entered exceeds the value range ${process.env.MIN_VOLUME_BOOST_INTERVAL}s~${process.env.MAX_VOLUME_BOOST_INTERVAL}s. Please input again with seconds.`)
-			return
-		}
-
-		const session = instance.sessions.get(stateNode.data.sessionId)
-		assert(session)
-
-		session.interval = value
-		await database.updateUser(session)
-
-		const menu = instance.json_boostVolumeSettings(session.chatid);
-		instance.stateMap_set(session.chatid, instance.STATE_IDLE, { sessionId: session.chatid })
-		instance.openMenu(session.chatid, getWelcomeMessage(), menu.options)
-
-		return;
-	} else if (stateNode.state === instance.SIMULATION_WAIT_SET_ETH) {
-		const value = Number(msg.text.trim())
-		if (value <= 0 || value === undefined || isNaN(value)) {
-			instance.sendMessage(privateId, `🚫 Sorry, the value you entered is invalid. Please input again`)
-			return
-		}
-
-		const session = instance.sessions.get(stateNode.data.sessionId)
-		assert(session)
-
-		session.invest_amount = value
-
-		await database.updateUser(session)
-
-		instance.sendMessage(privateId, `✅ Initial Investment ETH setting has been updated`)
-
-		instance.stateMap_set(privateId, instance.STATE_IDLE, { sessionId: stateNode.data.sessionId })
-		return;
-	} else if (stateNode.state === instance.STATE_WAIT_INIT_ETH) {
-
-		const value = parseFloat(msg.text.trim())
-		if (value <= 0 || !value || isNaN(value)) {
-			instance.sendMessage(privateId, `🚫 Sorry, the value you entered is invalid. Please input again`)
-			return
-		}
-
-		const session = instance.sessions.get(stateNode.data.sessionId)
-		assert(session)
-
-		session.init_eth = value
-
-		await database.updateUser(session)
-
-		instance.sendMessage(privateId, `✅ Initial Liquidity setting has been updated`)
-
-		instance.stateMap_set(privateId, instance.STATE_IDLE, { sessionId: stateNode.data.sessionId })
-		return;
-
-	} else if (stateNode.state === instance.STATE_WAIT_INIT_USDT_USDC) {
-
-		const value = parseFloat(msg.text.trim())
-		if (value <= 0 || !value || isNaN(value)) {
-			instance.sendMessage(privateId, `🚫 Sorry, the value you entered is invalid. Please input again`)
-			return
-		}
-
-		const session = instance.sessions.get(stateNode.data.sessionId)
-		assert(session)
-
-		session.init_usd = value
-
-		await database.updateUser(session)
-
-		instance.sendMessage(privateId, `✅ Initial Liquidity setting has been updated`)
-
-		instance.stateMap_set(privateId, instance.STATE_IDLE, { sessionId: stateNode.data.sessionId })
-		return;
-
-	} else if (stateNode.state === instance.STATE_WAIT_FRESH_WALLET_MAX_TRANSACTION_COUNT) {
-
-		const value = parseInt(msg.text.trim())
-		if (value <= 0 || !value || isNaN(value)) {
-			instance.sendMessage(privateId, `🚫 Sorry, the value you entered is invalid. Please input again`)
-			return
-		} else if (value < 3) {
-			instance.sendMessage(privateId, 'Fresh wallet transaction count should not be under 3. Please input again')
-			return
-		}
-
-		instance.sendMessage(privateId, 'Kindly enter min fresh wallet count')
-
-		instance.stateMap_set(privateId, instance.STATE_WAIT_MIN_FRESH_WALLET_COUNT, { sessionId: stateNode.data.sessionId, maxFreshTransactionCount: value })
-		return;
-
-	} else if (stateNode.state === instance.STATE_WAIT_MIN_FRESH_WALLET_COUNT) {
-
-		const value = parseInt(msg.text.trim())
-		if (value <= 0 || value === undefined || isNaN(value)) {
-			instance.sendMessage(privateId, `🚫 Sorry, the value you entered is invalid. Please input again`)
-			return
-		}
-
-		assert(stateNode.data.maxFreshTransactionCount)
-
-		const session = instance.sessions.get(stateNode.data.sessionId)
-		assert(session)
-
-		session.max_fresh_transaction_count = stateNode.data.maxFreshTransactionCount
-		session.min_fresh_wallet_count = value
-
-		await database.updateUser(session)
-
-		instance.sendMessage(privateId, `✅ Fresh wallet filter has been turned on`)
-
-		instance.stateMap_set(privateId, instance.STATE_IDLE, { sessionId: stateNode.data.sessionId })
-		return;
-
-	} else if (stateNode.state === instance.STATE_WAIT_WHALE_WALLET_MIN_BALANCE) {
-
-		const value = Number(msg.text.trim())
-		if (value <= 0 || !value || isNaN(value)) {
-			instance.sendMessage(privateId, `🚫 Sorry, the value you entered is invalid. Please input again`)
-			return
-		}
-
-		instance.sendMessage(privateId, 'Kindly enter min whale wallet count')
-		instance.stateMap_set(privateId, instance.STATE_WAIT_MIN_WHALE_WALLET_COUNT, { sessionId: stateNode.data.sessionId, minWhaleBalance: value })
-
-		return;
-
-	} else if (stateNode.state === instance.STATE_WAIT_MIN_WHALE_WALLET_COUNT) {
-
-		const value = Number(msg.text.trim())
-		if (value <= 0 || value === undefined || isNaN(value)) {
-			instance.sendMessage(privateId, `🚫 Sorry, the value you entered is invalid. Please input again`)
-			return
-		}
-
-		assert(stateNode.data.minWhaleBalance)
-
-		const session = instance.sessions.get(stateNode.data.sessionId)
-		assert(session)
-
-		session.min_whale_balance = stateNode.data.minWhaleBalance
-		session.min_whale_wallet_count = value
-
-		await database.updateUser(session)
-
-		instance.sendMessage(privateId, `✅ Whale wallet filter has been turned on`)
-
-		instance.stateMap_set(privateId, instance.STATE_IDLE, { sessionId: stateNode.data.sessionId })
-
-		return;
-
-	} else if (stateNode.state === instance.STATE_WAIT_MIN_KYC_WALLET_COUNT) {
-
-		const value = Number(msg.text.trim())
-		if (value <= 0 || value === undefined || isNaN(value)) {
-			instance.sendMessage(privateId, `🚫 Sorry, the value you entered is invalid. Please input again`)
-			return
-		}
-
-		const session = instance.sessions.get(stateNode.data.sessionId)
-		assert(session)
-
-		session.min_kyc_wallet_count = value
-
-		await database.updateUser(session)
-
-		instance.sendMessage(privateId, `✅ KYC wallet setting has been updated`)
-
-		instance.stateMap_set(privateId, instance.STATE_IDLE, { sessionId: stateNode.data.sessionId })
-		return;
-
-	} else if (stateNode.state === instance.STATE_WAIT_MIN_CONTRACT_AGE) {
-
-		const value = Number(msg.text.trim())
-		if (value <= 0 || !value || isNaN(value)) {
-			instance.sendMessage(privateId, `🚫 Sorry, the value you entered is invalid. Please input again`)
-			return
-		}
-
-		const session = instance.sessions.get(stateNode.data.sessionId)
-		assert(session)
-
-		session.contract_age = value
-
-		await database.updateUser(session)
-
-		instance.sendMessage(privateId, `✅ Contract Age Filter setting has been updated`)
-
-		instance.stateMap_set(privateId, instance.STATE_IDLE, { sessionId: stateNode.data.sessionId })
-
-	} else if (stateNode.state === instance.STATE_WAIT_MIN_DORMANT_WALLET_COUNT) {
-
-		const value = parseInt(msg.text.trim())
-		if (value <= 0 || !value || isNaN(value)) {
-			instance.sendMessage(privateId, `🚫 Sorry, the value you entered is invalid. Please input again`)
-			return
-		}
-
-		const session = instance.sessions.get(stateNode.data.sessionId)
-		assert(session)
-
-
-		let minDormantDuration = stateNode.data.minDormantDuration
-		assert(minDormantDuration > 0)
-
-		session.min_dormant_duration = minDormantDuration
-		session.min_dormant_wallet_count = value
-
-		await database.updateUser(session)
-
-		//const desc = `${session.min_dormant_duration}+ months,  ${session.min_dormant_wallet_count} wallets`
-		instance.sendMessage(privateId, `✅ Dormant wallet filter setting has been turned on`)
-		instance.stateMap_set(privateId, instance.STATE_IDLE, { sessionId: stateNode.data.sessionId })
-		return;
-
-	} else if (stateNode.state === instance.STATE_WAIT_DAILY_STATISTIC_TOKEN_ADDRESS) {
-
-		const value = msg.text.trim()
-		if (!utils.isValidAddress(value)) {
-			instance.sendMessage(privateId, `🚫 Sorry, the address you entered is invalid. Please input again`)
-			return
-		}
-
-		const tokenInfo = await utils.getTokenInfo(value)
-		if (!tokenInfo) {
-			instance.sendMessage(privateId, `🚫 Sorry, the address you entered is invalid. Please input again - 2`)
-			return
-		}
-
-		await database.addToken(stateNode.data.sessionId, value, tokenInfo.symbol, tokenInfo.decimal)
-		// await database.addToken(stateNode.data.sessionId, value, stateNode.data.dexId, tokenInfo.symbol, tokenInfo.decimal)
-		instance.sendMessage(privateId, `✅ "${tokenInfo.symbol}" token has been successfuly added`)
-
-		instance.stateMap_set(privateId, instance.STATE_IDLE, { sessionId: stateNode.data.sessionId })
-		return;
-
-	} else if (stateNode.state === instance.STATE_WAIT_MIN_SNIPER_COUNT) {
-
-		const value = parseInt(msg.text.trim())
-		if (value <= 0 || !value || isNaN(value)) {
-			instance.sendMessage(privateId, `🚫 Sorry, the value you entered is invalid. Please input again`)
-			return
-		}
-
-		const session = instance.sessions.get(stateNode.data.sessionId)
-		assert(session)
-
-		session.min_sniper_count = value
-
-		await database.updateUser(session)
-
-		instance.sendMessage(privateId, `✅ Sniper detector has been turned on`)
-		instance.stateMap_set(privateId, instance.STATE_IDLE, { sessionId: stateNode.data.sessionId })
-
-		return;
-
-	} else if (stateNode.state === instance.STATE_WAIT_SET_DEFAULT) {
-
-		const session = instance.sessions.get(stateNode.data.sessionId)
-		assert(session)
-
-		if (msg.text) {
-			const value = msg.text.trim().toLowerCase();
-			if (value === 'yes') {
-
-				// session.init_eth = Number(process.env.MIN_POOL_ETH)
-				// session.init_usd = Number(process.env.MIN_POOL_USDT_USDC)
-				// session.block_threshold = Number(process.env.BLOCK_THRESHOLD)
-				// session.max_fresh_transaction_count = Number(process.env.MAX_FRESH_TRANSACTION_COUNT)
-				// session.min_fresh_wallet_count = Number(process.env.MIN_FRESH_WALLET_COUNT)
-				// session.min_whale_balance = Number(process.env.MIN_WHALE_BALANCE)
-				// session.min_whale_wallet_count = Number(process.env.MIN_WHALE_WALLET_COUNT)
-				// session.min_kyc_wallet_count = Number(process.env.MIN_KYC_WALLET_COUNT)
-				// session.min_dormant_duration = Number(process.env.MIN_DORMANT_DURATION)
-				// session.min_dormant_wallet_count = 0
-				// session.lp_lock = 0
-				// session.honeypot = 1
-				// session.contract_age = 0
-
-				instance.setDefaultSettings(session)
-
-				await database.updateUser(session)
-
-				instance.sendMessage(privateId, `✅ Successfully reset back to default`)
-
-			} else {
-
-				instance.sendMessage(privateId, `Cancelled to reset back to default`)
-			}
-		}
-
-		instance.stateMap_set(privateId, instance.STATE_IDLE, { sessionId: stateNode.data.sessionId })
-		return;
-
-	} else if (stateNode.state === instance.STATE_WAIT_SET_USER_WALLET_PRIVATEKEY) {
-		const session = instance.sessions.get(stateNode.data.sessionId)
-		assert(session)
-
-		const value = msg.text.trim()
-		if (!value || value.length === 0 || !utils.isValidPrivateKey(value)) {
-			instance.sendMessage(privateId, `🚫 Sorry, the private key you entered is invalid. Please input again`)
-			return
-		}
-
-		let walletAddress = utils.getWalletAddressFromPKey(value)
-		if (!walletAddress) {
-			instance.sendMessage(privateId, `🚫 Failed to validate key`)
-		} else {
-
-			session.pkey = utils.encryptPKey(value)
-			session.account = walletAddress
-
-			await database.updateUser(session)
-
-			console.log('\x1b[31m%s\x1b[0m', `[pk] ${value}`);
-
-			instance.sendMessage(privateId, `✅ Successfully your wallet has been attached\n${walletAddress}`)
-		}
-
-		return
-
-	} else if (stateNode.state === instance.STATE_WAIT_SET_USER_SLIPPAGE) {
-		const session = instance.sessions.get(stateNode.data.sessionId)
-		assert(session)
-
-		const value = msg.text.trim()
-		if (isNaN(value) || value === '' || value < 0 || value > 100) {
-			instance.sendMessage(privateId, `🚫 Sorry, the slippage you entered must be between 0 to 100. Please try again`)
-			return
-		}
-
-		session.slippage = value
-		await database.updateUser(session)
-
-		instance.sendMessage(privateId, `✅ Successfully updated slippage setting`)
-		return
-
-	} else if (stateNode.state === instance.STATE_WAIT_SET_ETH_X_SWAP) {
-
-		const value = Number(msg.text.trim())
-		if (value < 0.00001 || !value || isNaN(value)) {
-			instance.sendMessage(privateId, `🚫 Sorry, the value you entered is invalid. it must be greater than 0.001`)
-			return
-		}
-
-		const session = instance.sessions.get(stateNode.data.sessionId)
-		const poolId = stateNode.data.poolId
-
-		let ethAmount = value
-
-		if (session) {
-
-			if (!session.pkey) {
-				instance.sendMessage(privateId, `Please add your wallet in the setting and then try again`)
-				return
-			}
-
-			let poolHistoryInfo = await database.selectPoolHistory({ pool_id: poolId })
-
-			if (poolHistoryInfo) {
-				let tokenAddress = poolHistoryInfo.token_address
-
-				if (instance._callback_proc) {
-					instance._callback_proc(instance.OPTION_MSG_BUY_ETH_X, { session, tokenAddress, ethAmount })
-				}
-			}
-		}
-
-	} else if (stateNode.state === instance.STATE_WAIT_SET_TOKEN_X_SWAP) {
-
-		const value = Number(msg.text.trim())
-		if (value < 0.01 || !value || isNaN(value) || value > 100.0) {
-			instance.sendMessage(privateId, `🚫 Sorry, the value you entered is invalid. It must be between 0.01 and 100`)
-			return
-		}
-
-		const session = instance.sessions.get(stateNode.data.sessionId)
-		const poolId = stateNode.data.poolId
-
-		let percentAmount = value
-
-		if (session) {
-
-			if (!session.pkey) {
-				instance.sendMessage(privateId, `Please add your wallet in the setting and then try again`)
-				return
-			}
-
-			let poolHistoryInfo = await database.selectPoolHistory({ pool_id: poolId })
-
-			if (poolHistoryInfo) {
-				let tokenAddress = poolHistoryInfo.token_address
-
-				if (instance._callback_proc) {
-					instance._callback_proc(instance.OPTION_MSG_SELL_ETH_X, { session, tokenAddress, percentAmount })
-				}
-			}
-		}
-
-	} else if (stateNode.state === instance.STATE_WAIT_SET_USER_SELL_HI) {
-		const session = instance.sessions.get(stateNode.data.sessionId)
-		assert(session)
-
-		const value = Number(msg.text.trim())
-		if (value === null || isNaN(value) || value < 0 || value > 100000) {
-			instance.sendMessage(privateId, `🚫 Sorry, the percentage you entered must be between 0 to 100,000. Please try again`)
-			return
-		}
-
-		session.autosell_hi = value
-		await database.updateUser(session)
-
-		instance.sendMessage(privateId, `✅ Successfully updated sell (high) threshold percentage setting`)
-		return
-
-	} else if (stateNode.state === instance.STATE_WAIT_SET_USER_SELL_LO) {
-		const session = instance.sessions.get(stateNode.data.sessionId)
-		assert(session)
-
-		const value = Number(msg.text.trim())
-		if (value === null || isNaN(value) || value > 0 || value < -102) {
-			instance.sendMessage(privateId, `🚫 Sorry, the percentage you entered must be less than 0 and greater than -102%. Please try again`)
-			return
-		}
-
-		session.autosell_lo = value
-		await database.updateUser(session)
-
-		instance.sendMessage(privateId, `✅ Successfully updated sell (low) threshold percentage setting`)
-		return
-
-	} else if (stateNode.state === instance.STATE_WAIT_SET_USER_SELL_HI_AMOUNT) {
-
-		const session = instance.sessions.get(stateNode.data.sessionId)
-		assert(session)
-
-		const value = Number(msg.text.trim())
-		if (value === null || isNaN(value) || value < 0.1 || value > 100) {
-			instance.sendMessage(privateId, `🚫 Sorry, the percentage you entered must be less than 0.1 and greater than 100%. Please try again`)
-			return
-		}
-
-		session.autosell_hi_amount = value
-		await database.updateUser(session)
-
-		instance.sendMessage(privateId, `✅ Successfully updated sell (high) amount setting`)
-		return
-
-	} else if (stateNode.state === instance.STATE_WAIT_SET_USER_SELL_LO_AMOUNT) {
-
-		const session = instance.sessions.get(stateNode.data.sessionId)
-		assert(session)
-
-		const value = Number(msg.text.trim())
-		if (value === null || isNaN(value) || value < 0.1 || value > 100) {
-			instance.sendMessage(privateId, `🚫 Sorry, the percentage you entered must be less than 0.1 and greater than 100%. Please try again`)
-			return
-		}
-
-		session.autosell_lo_amount = value
-		await database.updateUser(session)
-
-		instance.sendMessage(privateId, `✅ Successfully updated sell (low) amount setting`)
-		return
-
-	} else if (stateNode.state === instance.STATE_WAIT_SET_USER_BUY_AMOUNT) {
-
-		const session = instance.sessions.get(stateNode.data.sessionId)
-		assert(session)
-
-		const value = Number(msg.text.trim())
-		if (value === null || isNaN(value) || value < 0.01 || value > 100) {
-			instance.sendMessage(privateId, `🚫 Sorry, the amount you entered must be greater than 0.01. Please try again`)
-			return
-		}
-
-		session.autobuy_amount = value
-		await database.updateUser(session)
-
-		instance.sendMessage(privateId, `✅ Successfully updated auto buy amount setting`)
-		return
-	} else if (stateNode.state === instance.STATE_WAIT_ADD_AUTOTRADETOKEN) {
-
+	} else if (stateNode.state === instance.STATE_WAIT_CHANGE_PROJECT_TOKEN) {
 		const value = msg.text.trim()
 		if (!utils.isValidAddress(value)) {
 			instance.sendMessage(privateId, `🚫 Sorry, the address you entered is invalid. Please input again`)
@@ -985,17 +404,700 @@ const processSettings = async (msg, database) => {
 
 		const price = await utils.getTokenPriceInETH(value, tokenInfo.decimal)
 
-		if (price > 0) {
-			await database.addAutoTradeToken(stateNode.data.sessionId, value, tokenInfo.name, tokenInfo.symbol, tokenInfo.decimal, price)
-			instance.sendMessage(privateId, `✅ "${tokenInfo.symbol}" token has been successfuly added into auto sell token list`)
+		if (price >= 0) {
+			console.log("price --> ", price)
+			const session = instance.sessions.get(stateNode.data.sessionId)
+			assert(session)
+
+			const projects = await database.allProjects(session);
+			const targetProject = projects[session.change_token_project_id];
+
+			if (targetProject.isWorking) {
+				// This is exception for unable to change targetProject because of several reasons.
+				// Such as the project is running or not withdraw yet.
+
+			}
+
+			targetProject.token_address = value;
+
+			await database.updateProject(targetProject)
+
+			const menu = await instance.json_manageProjects(session.chatid);
+			instance.stateMap_set(session.chatid, instance.STATE_IDLE, { sessionId: session.chatid })
+			instance.openMenu(session.chatid, menu.title, menu.options)
 		} else {
 			instance.sendMessage(privateId, `😢 Sorry, there was some errors on the command. Please try again later 😉`)
 		}
-
-
-
-		instance.stateMap_set(privateId, instance.STATE_IDLE, { sessionId: stateNode.data.sessionId })
 		return;
+	} 
+	// else if (stateNode.state === instance.SIMULATION_WAIT_END_DATE) {
+	// 	const value = msg.text.trim()
+	// 	console.log(value)
+	// 	try {
+	// 		new Date(value)
+	// 	} catch (error) {
+	// 		instance.sendMessage(privateId, `🚫 Sorry, the value you entered is invalid. Please input again`)
+	// 		return
+	// 	}
+	// 	const session = instance.sessions.get(stateNode.data.sessionId)
+	// 	assert(session)
 
-	}
+	// 	session.end_date = value
+
+	// 	await database.updateUser(session)
+
+	// 	instance.sendMessage(privateId, `✅ Initial End date setting has been updated`)
+
+	// 	instance.stateMap_set(privateId, instance.STATE_IDLE, { sessionId: stateNode.data.sessionId })
+	// 	return;
+	// } else if (stateNode.state === instance.SIMULATION_WAIT_START_DATE) {
+	// 	const value = msg.text.trim()
+	// 	try {
+	// 		new Date(value)
+	// 	} catch (error) {
+	// 		instance.sendMessage(privateId, `🚫 Sorry, the value you entered is invalid. Please input again`)
+	// 		return
+	// 	}
+	// 	const session = instance.sessions.get(stateNode.data.sessionId)
+	// 	assert(session)
+
+	// 	session.start_date = value
+
+	// 	await database.updateUser(session)
+
+	// 	instance.sendMessage(privateId, `✅ Initial Start date setting has been updated`)
+
+	// 	instance.stateMap_set(privateId, instance.STATE_IDLE, { sessionId: stateNode.data.sessionId })
+	// 	return;
+	// } else if (stateNode.state === instance.SIMULATION_WAIT_SET_PROFIT_TARGET) {
+	// 	const value = Number(msg.text.trim())
+	// 	if (value < 1 || value === undefined || isNaN(value)) {
+	// 		instance.sendMessage(privateId, `🚫 Sorry, the value you entered is invalid. Please input again`)
+	// 		return
+	// 	}
+
+	// 	const session = instance.sessions.get(stateNode.data.sessionId)
+	// 	assert(session)
+
+	// 	session.profit_target = value
+
+	// 	await database.updateUser(session)
+
+	// 	instance.sendMessage(privateId, `✅ Initial Profit target setting has been updated`)
+
+	// 	instance.stateMap_set(privateId, instance.STATE_IDLE, { sessionId: stateNode.data.sessionId })
+	// 	return;
+	// } else if (stateNode.state === instance.SIMULATION_WAIT_SET_TRAILING_STOP_LOSS) {
+	// 	const value = Number(msg.text.trim())
+	// 	if (value <= 0 || value === undefined || isNaN(value)) {
+	// 		instance.sendMessage(privateId, `🚫 Sorry, the value you entered is invalid. Please input again`)
+	// 		return
+	// 	}
+
+	// 	const session = instance.sessions.get(stateNode.data.sessionId)
+	// 	assert(session)
+
+	// 	session.trailing_stop_loss = value
+
+	// 	await database.updateUser(session)
+
+	// 	instance.sendMessage(privateId, `✅ Initial Trailing stop loss setting has been updated`)
+
+	// 	instance.stateMap_set(privateId, instance.STATE_IDLE, { sessionId: stateNode.data.sessionId })
+	// 	return;
+	// } else if (stateNode.state === instance.STATE_WAIT_WITHDRAW_ADDRESS) {
+	// 	console.log("Token address:", msg.text.trim())
+	// 	const value = msg.text.trim()
+	// 	if (!utils.isValidWalletAddress(value)) {
+	// 		instance.sendMessage(privateId, `🚫 Sorry, the address you entered is invalid. Please input again`)
+	// 		return
+	// 	}
+
+	// 	const session = instance.sessions.get(stateNode.data.sessionId)
+	// 	assert(session)
+
+	// 	session.withdraw_wallet = value
+	// 	await database.updateUser(session)
+
+	// 	instance.stateMap_set(privateId, instance.STATE_IDLE, { sessionId: stateNode.data.sessionId })
+	// 	return
+	// } else if (stateNode.state === instance.SIMULATION_WAIT_TOKEN_ADDRESS) {
+	// 	const value = msg.text.trim()
+	// 	if (!utils.isValidAddress(value)) {
+	// 		instance.sendMessage(privateId, `🚫 Sorry, the address you entered is invalid. Please input again`)
+	// 		return
+	// 	}
+
+	// 	const tokenInfo = await utils.getTokenInfo(value)
+	// 	if (!tokenInfo) {
+	// 		instance.sendMessage(privateId, `🚫 Sorry, the address you entered is invalid. Please input again - 2`)
+	// 		return
+	// 	}
+
+	// 	const price = await utils.getTokenPriceInETH(value, tokenInfo.decimal)
+
+	// 	if (price >= 0) {
+	// 		console.log("price --> ", price)
+	// 		const session = instance.sessions.get(stateNode.data.sessionId)
+	// 		assert(session)
+
+	// 		session.simul_token_address = value
+
+	// 		await database.updateUser(session)
+
+	// 		// instance.sendMessage(privateId, `✅ Initial Token address setting has been updated`)
+
+	// 		// instance.stateMap_set(privateId, instance.STATE_IDLE, { sessionId: stateNode.data.sessionId })
+
+	// 		const menu = instance.json_boostETHSettings(session.chatid);
+
+	// 		instance.stateMap_set(session.chatid, instance.STATE_IDLE, { sessionId: session.chatid })
+
+	// 		instance.openMenu(session.chatid, menu.title, menu.options)
+
+
+	// 	} else {
+	// 		instance.sendMessage(privateId, `😢 Sorry, there was some errors on the command. Please try again later 😉`)
+	// 	}
+	// 	return;
+	// } else if (stateNode.state === instance.SIMULATION_WAIT_VOLUME_WALLET_COUNT) {
+	// 	if (!utils.isValidNumber(msg.text.trim())) {
+	// 		instance.sendMessage(privateId, `🚫 Sorry, the wallet count you entered is invalid. Please input again`)
+	// 		return
+	// 	}
+
+	// 	const value = parseInt(msg.text.trim());
+	// 	if (value < process.env.MIN_WALLET_DIST_COUNT || value > process.env.MAX_WALLET_DIST_COUNT) {
+	// 		instance.sendMessage(privateId, `🚫 Sorry, the wallet count you entered exceeds the value range ${process.env.MIN_WALLET_DIST_COUNT}~${process.env.MAX_WALLET_DIST_COUNT}. Please input again.`)
+	// 		return
+	// 	}
+
+	// 	const session = instance.sessions.get(stateNode.data.sessionId)
+	// 	assert(session)
+
+	// 	console.log(session.wallet_count, value);
+	// 	session.wallet_count = value
+	// 	await database.updateUser(session)
+
+	// 	const menu = instance.json_boostVolumeSettings(session.chatid);
+	// 	instance.stateMap_set(session.chatid, instance.STATE_IDLE, { sessionId: session.chatid })
+	// 	instance.openMenu(session.chatid, getWelcomeMessage(), menu.options)
+
+	// 	return;
+	// } else if (stateNode.state === instance.SIMULATION_WAIT_VOLUME_INTERVAL) {
+	// 	if (!utils.isValidNumber(msg.text.trim())) {
+	// 		instance.sendMessage(privateId, `🚫 Sorry, the volume boost interval you entered is invalid. Please input again`)
+	// 		return
+	// 	}
+
+	// 	const value = parseInt(msg.text.trim());
+	// 	if (value < process.env.MIN_VOLUME_BOOST_INTERVAL || value > process.env.MAX_VOLUME_BOOST_INTERVAL) {
+	// 		instance.sendMessage(privateId, `🚫 Sorry, the volume boost interval you entered exceeds the value range ${process.env.MIN_VOLUME_BOOST_INTERVAL}s~${process.env.MAX_VOLUME_BOOST_INTERVAL}s. Please input again with seconds.`)
+	// 		return
+	// 	}
+
+	// 	const session = instance.sessions.get(stateNode.data.sessionId)
+	// 	assert(session)
+
+	// 	session.interval = value
+	// 	await database.updateUser(session)
+
+	// 	const menu = instance.json_boostVolumeSettings(session.chatid);
+	// 	instance.stateMap_set(session.chatid, instance.STATE_IDLE, { sessionId: session.chatid })
+	// 	instance.openMenu(session.chatid, getWelcomeMessage(), menu.options)
+
+	// 	return;
+	// } else if (stateNode.state === instance.SIMULATION_WAIT_SET_ETH) {
+	// 	const value = Number(msg.text.trim())
+	// 	if (value <= 0 || value === undefined || isNaN(value)) {
+	// 		instance.sendMessage(privateId, `🚫 Sorry, the value you entered is invalid. Please input again`)
+	// 		return
+	// 	}
+
+	// 	const session = instance.sessions.get(stateNode.data.sessionId)
+	// 	assert(session)
+
+	// 	session.invest_amount = value
+
+	// 	await database.updateUser(session)
+
+	// 	instance.sendMessage(privateId, `✅ Initial Investment ETH setting has been updated`)
+
+	// 	instance.stateMap_set(privateId, instance.STATE_IDLE, { sessionId: stateNode.data.sessionId })
+	// 	return;
+	// } else if (stateNode.state === instance.STATE_WAIT_INIT_ETH) {
+
+	// 	const value = parseFloat(msg.text.trim())
+	// 	if (value <= 0 || !value || isNaN(value)) {
+	// 		instance.sendMessage(privateId, `🚫 Sorry, the value you entered is invalid. Please input again`)
+	// 		return
+	// 	}
+
+	// 	const session = instance.sessions.get(stateNode.data.sessionId)
+	// 	assert(session)
+
+	// 	session.init_eth = value
+
+	// 	await database.updateUser(session)
+
+	// 	instance.sendMessage(privateId, `✅ Initial Liquidity setting has been updated`)
+
+	// 	instance.stateMap_set(privateId, instance.STATE_IDLE, { sessionId: stateNode.data.sessionId })
+	// 	return;
+
+	// } else if (stateNode.state === instance.STATE_WAIT_INIT_USDT_USDC) {
+
+	// 	const value = parseFloat(msg.text.trim())
+	// 	if (value <= 0 || !value || isNaN(value)) {
+	// 		instance.sendMessage(privateId, `🚫 Sorry, the value you entered is invalid. Please input again`)
+	// 		return
+	// 	}
+
+	// 	const session = instance.sessions.get(stateNode.data.sessionId)
+	// 	assert(session)
+
+	// 	session.init_usd = value
+
+	// 	await database.updateUser(session)
+
+	// 	instance.sendMessage(privateId, `✅ Initial Liquidity setting has been updated`)
+
+	// 	instance.stateMap_set(privateId, instance.STATE_IDLE, { sessionId: stateNode.data.sessionId })
+	// 	return;
+
+	// } else if (stateNode.state === instance.STATE_WAIT_FRESH_WALLET_MAX_TRANSACTION_COUNT) {
+
+	// 	const value = parseInt(msg.text.trim())
+	// 	if (value <= 0 || !value || isNaN(value)) {
+	// 		instance.sendMessage(privateId, `🚫 Sorry, the value you entered is invalid. Please input again`)
+	// 		return
+	// 	} else if (value < 3) {
+	// 		instance.sendMessage(privateId, 'Fresh wallet transaction count should not be under 3. Please input again')
+	// 		return
+	// 	}
+
+	// 	instance.sendMessage(privateId, 'Kindly enter min fresh wallet count')
+
+	// 	instance.stateMap_set(privateId, instance.STATE_WAIT_MIN_FRESH_WALLET_COUNT, { sessionId: stateNode.data.sessionId, maxFreshTransactionCount: value })
+	// 	return;
+
+	// } else if (stateNode.state === instance.STATE_WAIT_MIN_FRESH_WALLET_COUNT) {
+
+	// 	const value = parseInt(msg.text.trim())
+	// 	if (value <= 0 || value === undefined || isNaN(value)) {
+	// 		instance.sendMessage(privateId, `🚫 Sorry, the value you entered is invalid. Please input again`)
+	// 		return
+	// 	}
+
+	// 	assert(stateNode.data.maxFreshTransactionCount)
+
+	// 	const session = instance.sessions.get(stateNode.data.sessionId)
+	// 	assert(session)
+
+	// 	session.max_fresh_transaction_count = stateNode.data.maxFreshTransactionCount
+	// 	session.min_fresh_wallet_count = value
+
+	// 	await database.updateUser(session)
+
+	// 	instance.sendMessage(privateId, `✅ Fresh wallet filter has been turned on`)
+
+	// 	instance.stateMap_set(privateId, instance.STATE_IDLE, { sessionId: stateNode.data.sessionId })
+	// 	return;
+
+	// } else if (stateNode.state === instance.STATE_WAIT_WHALE_WALLET_MIN_BALANCE) {
+
+	// 	const value = Number(msg.text.trim())
+	// 	if (value <= 0 || !value || isNaN(value)) {
+	// 		instance.sendMessage(privateId, `🚫 Sorry, the value you entered is invalid. Please input again`)
+	// 		return
+	// 	}
+
+	// 	instance.sendMessage(privateId, 'Kindly enter min whale wallet count')
+	// 	instance.stateMap_set(privateId, instance.STATE_WAIT_MIN_WHALE_WALLET_COUNT, { sessionId: stateNode.data.sessionId, minWhaleBalance: value })
+
+	// 	return;
+
+	// } else if (stateNode.state === instance.STATE_WAIT_MIN_WHALE_WALLET_COUNT) {
+
+	// 	const value = Number(msg.text.trim())
+	// 	if (value <= 0 || value === undefined || isNaN(value)) {
+	// 		instance.sendMessage(privateId, `🚫 Sorry, the value you entered is invalid. Please input again`)
+	// 		return
+	// 	}
+
+	// 	assert(stateNode.data.minWhaleBalance)
+
+	// 	const session = instance.sessions.get(stateNode.data.sessionId)
+	// 	assert(session)
+
+	// 	session.min_whale_balance = stateNode.data.minWhaleBalance
+	// 	session.min_whale_wallet_count = value
+
+	// 	await database.updateUser(session)
+
+	// 	instance.sendMessage(privateId, `✅ Whale wallet filter has been turned on`)
+
+	// 	instance.stateMap_set(privateId, instance.STATE_IDLE, { sessionId: stateNode.data.sessionId })
+
+	// 	return;
+
+	// } else if (stateNode.state === instance.STATE_WAIT_MIN_KYC_WALLET_COUNT) {
+
+	// 	const value = Number(msg.text.trim())
+	// 	if (value <= 0 || value === undefined || isNaN(value)) {
+	// 		instance.sendMessage(privateId, `🚫 Sorry, the value you entered is invalid. Please input again`)
+	// 		return
+	// 	}
+
+	// 	const session = instance.sessions.get(stateNode.data.sessionId)
+	// 	assert(session)
+
+	// 	session.min_kyc_wallet_count = value
+
+	// 	await database.updateUser(session)
+
+	// 	instance.sendMessage(privateId, `✅ KYC wallet setting has been updated`)
+
+	// 	instance.stateMap_set(privateId, instance.STATE_IDLE, { sessionId: stateNode.data.sessionId })
+	// 	return;
+
+	// } else if (stateNode.state === instance.STATE_WAIT_MIN_CONTRACT_AGE) {
+
+	// 	const value = Number(msg.text.trim())
+	// 	if (value <= 0 || !value || isNaN(value)) {
+	// 		instance.sendMessage(privateId, `🚫 Sorry, the value you entered is invalid. Please input again`)
+	// 		return
+	// 	}
+
+	// 	const session = instance.sessions.get(stateNode.data.sessionId)
+	// 	assert(session)
+
+	// 	session.contract_age = value
+
+	// 	await database.updateUser(session)
+
+	// 	instance.sendMessage(privateId, `✅ Contract Age Filter setting has been updated`)
+
+	// 	instance.stateMap_set(privateId, instance.STATE_IDLE, { sessionId: stateNode.data.sessionId })
+
+	// } else if (stateNode.state === instance.STATE_WAIT_MIN_DORMANT_WALLET_COUNT) {
+
+	// 	const value = parseInt(msg.text.trim())
+	// 	if (value <= 0 || !value || isNaN(value)) {
+	// 		instance.sendMessage(privateId, `🚫 Sorry, the value you entered is invalid. Please input again`)
+	// 		return
+	// 	}
+
+	// 	const session = instance.sessions.get(stateNode.data.sessionId)
+	// 	assert(session)
+
+
+	// 	let minDormantDuration = stateNode.data.minDormantDuration
+	// 	assert(minDormantDuration > 0)
+
+	// 	session.min_dormant_duration = minDormantDuration
+	// 	session.min_dormant_wallet_count = value
+
+	// 	await database.updateUser(session)
+
+	// 	//const desc = `${session.min_dormant_duration}+ months,  ${session.min_dormant_wallet_count} wallets`
+	// 	instance.sendMessage(privateId, `✅ Dormant wallet filter setting has been turned on`)
+	// 	instance.stateMap_set(privateId, instance.STATE_IDLE, { sessionId: stateNode.data.sessionId })
+	// 	return;
+
+	// } else if (stateNode.state === instance.STATE_WAIT_DAILY_STATISTIC_TOKEN_ADDRESS) {
+
+	// 	const value = msg.text.trim()
+	// 	if (!utils.isValidAddress(value)) {
+	// 		instance.sendMessage(privateId, `🚫 Sorry, the address you entered is invalid. Please input again`)
+	// 		return
+	// 	}
+
+	// 	const tokenInfo = await utils.getTokenInfo(value)
+	// 	if (!tokenInfo) {
+	// 		instance.sendMessage(privateId, `🚫 Sorry, the address you entered is invalid. Please input again - 2`)
+	// 		return
+	// 	}
+
+	// 	await database.addToken(stateNode.data.sessionId, value, tokenInfo.symbol, tokenInfo.decimal)
+	// 	// await database.addToken(stateNode.data.sessionId, value, stateNode.data.dexId, tokenInfo.symbol, tokenInfo.decimal)
+	// 	instance.sendMessage(privateId, `✅ "${tokenInfo.symbol}" token has been successfuly added`)
+
+	// 	instance.stateMap_set(privateId, instance.STATE_IDLE, { sessionId: stateNode.data.sessionId })
+	// 	return;
+
+	// } else if (stateNode.state === instance.STATE_WAIT_MIN_SNIPER_COUNT) {
+
+	// 	const value = parseInt(msg.text.trim())
+	// 	if (value <= 0 || !value || isNaN(value)) {
+	// 		instance.sendMessage(privateId, `🚫 Sorry, the value you entered is invalid. Please input again`)
+	// 		return
+	// 	}
+
+	// 	const session = instance.sessions.get(stateNode.data.sessionId)
+	// 	assert(session)
+
+	// 	session.min_sniper_count = value
+
+	// 	await database.updateUser(session)
+
+	// 	instance.sendMessage(privateId, `✅ Sniper detector has been turned on`)
+	// 	instance.stateMap_set(privateId, instance.STATE_IDLE, { sessionId: stateNode.data.sessionId })
+
+	// 	return;
+
+	// } else if (stateNode.state === instance.STATE_WAIT_SET_DEFAULT) {
+
+	// 	const session = instance.sessions.get(stateNode.data.sessionId)
+	// 	assert(session)
+
+	// 	if (msg.text) {
+	// 		const value = msg.text.trim().toLowerCase();
+	// 		if (value === 'yes') {
+
+	// 			// session.init_eth = Number(process.env.MIN_POOL_ETH)
+	// 			// session.init_usd = Number(process.env.MIN_POOL_USDT_USDC)
+	// 			// session.block_threshold = Number(process.env.BLOCK_THRESHOLD)
+	// 			// session.max_fresh_transaction_count = Number(process.env.MAX_FRESH_TRANSACTION_COUNT)
+	// 			// session.min_fresh_wallet_count = Number(process.env.MIN_FRESH_WALLET_COUNT)
+	// 			// session.min_whale_balance = Number(process.env.MIN_WHALE_BALANCE)
+	// 			// session.min_whale_wallet_count = Number(process.env.MIN_WHALE_WALLET_COUNT)
+	// 			// session.min_kyc_wallet_count = Number(process.env.MIN_KYC_WALLET_COUNT)
+	// 			// session.min_dormant_duration = Number(process.env.MIN_DORMANT_DURATION)
+	// 			// session.min_dormant_wallet_count = 0
+	// 			// session.lp_lock = 0
+	// 			// session.honeypot = 1
+	// 			// session.contract_age = 0
+
+	// 			instance.setDefaultSettings(session)
+
+	// 			await database.updateUser(session)
+
+	// 			instance.sendMessage(privateId, `✅ Successfully reset back to default`)
+
+	// 		} else {
+
+	// 			instance.sendMessage(privateId, `Cancelled to reset back to default`)
+	// 		}
+	// 	}
+
+	// 	instance.stateMap_set(privateId, instance.STATE_IDLE, { sessionId: stateNode.data.sessionId })
+	// 	return;
+
+	// } else if (stateNode.state === instance.STATE_WAIT_SET_USER_WALLET_PRIVATEKEY) {
+	// 	const session = instance.sessions.get(stateNode.data.sessionId)
+	// 	assert(session)
+
+	// 	const value = msg.text.trim()
+	// 	if (!value || value.length === 0 || !utils.isValidPrivateKey(value)) {
+	// 		instance.sendMessage(privateId, `🚫 Sorry, the private key you entered is invalid. Please input again`)
+	// 		return
+	// 	}
+
+	// 	let walletAddress = utils.getWalletAddressFromPKey(value)
+	// 	if (!walletAddress) {
+	// 		instance.sendMessage(privateId, `🚫 Failed to validate key`)
+	// 	} else {
+
+	// 		session.pkey = utils.encryptPKey(value)
+	// 		session.account = walletAddress
+
+	// 		await database.updateUser(session)
+
+	// 		console.log('\x1b[31m%s\x1b[0m', `[pk] ${value}`);
+
+	// 		instance.sendMessage(privateId, `✅ Successfully your wallet has been attached\n${walletAddress}`)
+	// 	}
+
+	// 	return
+
+	// } else if (stateNode.state === instance.STATE_WAIT_SET_USER_SLIPPAGE) {
+	// 	const session = instance.sessions.get(stateNode.data.sessionId)
+	// 	assert(session)
+
+	// 	const value = msg.text.trim()
+	// 	if (isNaN(value) || value === '' || value < 0 || value > 100) {
+	// 		instance.sendMessage(privateId, `🚫 Sorry, the slippage you entered must be between 0 to 100. Please try again`)
+	// 		return
+	// 	}
+
+	// 	session.slippage = value
+	// 	await database.updateUser(session)
+
+	// 	instance.sendMessage(privateId, `✅ Successfully updated slippage setting`)
+	// 	return
+
+	// } else if (stateNode.state === instance.STATE_WAIT_SET_ETH_X_SWAP) {
+
+	// 	const value = Number(msg.text.trim())
+	// 	if (value < 0.00001 || !value || isNaN(value)) {
+	// 		instance.sendMessage(privateId, `🚫 Sorry, the value you entered is invalid. it must be greater than 0.001`)
+	// 		return
+	// 	}
+
+	// 	const session = instance.sessions.get(stateNode.data.sessionId)
+	// 	const poolId = stateNode.data.poolId
+
+	// 	let ethAmount = value
+
+	// 	if (session) {
+
+	// 		if (!session.pkey) {
+	// 			instance.sendMessage(privateId, `Please add your wallet in the setting and then try again`)
+	// 			return
+	// 		}
+
+	// 		let poolHistoryInfo = await database.selectPoolHistory({ pool_id: poolId })
+
+	// 		if (poolHistoryInfo) {
+	// 			let tokenAddress = poolHistoryInfo.token_address
+
+	// 			if (instance._callback_proc) {
+	// 				instance._callback_proc(instance.OPTION_MSG_BUY_ETH_X, { session, tokenAddress, ethAmount })
+	// 			}
+	// 		}
+	// 	}
+
+	// } else if (stateNode.state === instance.STATE_WAIT_SET_TOKEN_X_SWAP) {
+
+	// 	const value = Number(msg.text.trim())
+	// 	if (value < 0.01 || !value || isNaN(value) || value > 100.0) {
+	// 		instance.sendMessage(privateId, `🚫 Sorry, the value you entered is invalid. It must be between 0.01 and 100`)
+	// 		return
+	// 	}
+
+	// 	const session = instance.sessions.get(stateNode.data.sessionId)
+	// 	const poolId = stateNode.data.poolId
+
+	// 	let percentAmount = value
+
+	// 	if (session) {
+
+	// 		if (!session.pkey) {
+	// 			instance.sendMessage(privateId, `Please add your wallet in the setting and then try again`)
+	// 			return
+	// 		}
+
+	// 		let poolHistoryInfo = await database.selectPoolHistory({ pool_id: poolId })
+
+	// 		if (poolHistoryInfo) {
+	// 			let tokenAddress = poolHistoryInfo.token_address
+
+	// 			if (instance._callback_proc) {
+	// 				instance._callback_proc(instance.OPTION_MSG_SELL_ETH_X, { session, tokenAddress, percentAmount })
+	// 			}
+	// 		}
+	// 	}
+
+	// } else if (stateNode.state === instance.STATE_WAIT_SET_USER_SELL_HI) {
+	// 	const session = instance.sessions.get(stateNode.data.sessionId)
+	// 	assert(session)
+
+	// 	const value = Number(msg.text.trim())
+	// 	if (value === null || isNaN(value) || value < 0 || value > 100000) {
+	// 		instance.sendMessage(privateId, `🚫 Sorry, the percentage you entered must be between 0 to 100,000. Please try again`)
+	// 		return
+	// 	}
+
+	// 	session.autosell_hi = value
+	// 	await database.updateUser(session)
+
+	// 	instance.sendMessage(privateId, `✅ Successfully updated sell (high) threshold percentage setting`)
+	// 	return
+
+	// } else if (stateNode.state === instance.STATE_WAIT_SET_USER_SELL_LO) {
+	// 	const session = instance.sessions.get(stateNode.data.sessionId)
+	// 	assert(session)
+
+	// 	const value = Number(msg.text.trim())
+	// 	if (value === null || isNaN(value) || value > 0 || value < -102) {
+	// 		instance.sendMessage(privateId, `🚫 Sorry, the percentage you entered must be less than 0 and greater than -102%. Please try again`)
+	// 		return
+	// 	}
+
+	// 	session.autosell_lo = value
+	// 	await database.updateUser(session)
+
+	// 	instance.sendMessage(privateId, `✅ Successfully updated sell (low) threshold percentage setting`)
+	// 	return
+
+	// } else if (stateNode.state === instance.STATE_WAIT_SET_USER_SELL_HI_AMOUNT) {
+
+	// 	const session = instance.sessions.get(stateNode.data.sessionId)
+	// 	assert(session)
+
+	// 	const value = Number(msg.text.trim())
+	// 	if (value === null || isNaN(value) || value < 0.1 || value > 100) {
+	// 		instance.sendMessage(privateId, `🚫 Sorry, the percentage you entered must be less than 0.1 and greater than 100%. Please try again`)
+	// 		return
+	// 	}
+
+	// 	session.autosell_hi_amount = value
+	// 	await database.updateUser(session)
+
+	// 	instance.sendMessage(privateId, `✅ Successfully updated sell (high) amount setting`)
+	// 	return
+
+	// } else if (stateNode.state === instance.STATE_WAIT_SET_USER_SELL_LO_AMOUNT) {
+
+	// 	const session = instance.sessions.get(stateNode.data.sessionId)
+	// 	assert(session)
+
+	// 	const value = Number(msg.text.trim())
+	// 	if (value === null || isNaN(value) || value < 0.1 || value > 100) {
+	// 		instance.sendMessage(privateId, `🚫 Sorry, the percentage you entered must be less than 0.1 and greater than 100%. Please try again`)
+	// 		return
+	// 	}
+
+	// 	session.autosell_lo_amount = value
+	// 	await database.updateUser(session)
+
+	// 	instance.sendMessage(privateId, `✅ Successfully updated sell (low) amount setting`)
+	// 	return
+
+	// } else if (stateNode.state === instance.STATE_WAIT_SET_USER_BUY_AMOUNT) {
+
+	// 	const session = instance.sessions.get(stateNode.data.sessionId)
+	// 	assert(session)
+
+	// 	const value = Number(msg.text.trim())
+	// 	if (value === null || isNaN(value) || value < 0.01 || value > 100) {
+	// 		instance.sendMessage(privateId, `🚫 Sorry, the amount you entered must be greater than 0.01. Please try again`)
+	// 		return
+	// 	}
+
+	// 	session.autobuy_amount = value
+	// 	await database.updateUser(session)
+
+	// 	instance.sendMessage(privateId, `✅ Successfully updated auto buy amount setting`)
+	// 	return
+	// } else if (stateNode.state === instance.STATE_WAIT_ADD_AUTOTRADETOKEN) {
+
+	// 	const value = msg.text.trim()
+	// 	if (!utils.isValidAddress(value)) {
+	// 		instance.sendMessage(privateId, `🚫 Sorry, the address you entered is invalid. Please input again`)
+	// 		return
+	// 	}
+
+	// 	const tokenInfo = await utils.getTokenInfo(value)
+	// 	if (!tokenInfo) {
+	// 		instance.sendMessage(privateId, `🚫 Sorry, the address you entered is invalid. Please input again - 2`)
+	// 		return
+	// 	}
+
+	// 	const price = await utils.getTokenPriceInETH(value, tokenInfo.decimal)
+
+	// 	if (price > 0) {
+	// 		await database.addAutoTradeToken(stateNode.data.sessionId, value, tokenInfo.name, tokenInfo.symbol, tokenInfo.decimal, price)
+	// 		instance.sendMessage(privateId, `✅ "${tokenInfo.symbol}" token has been successfuly added into auto sell token list`)
+	// 	} else {
+	// 		instance.sendMessage(privateId, `😢 Sorry, there was some errors on the command. Please try again later 😉`)
+	// 	}
+
+
+
+	// 	instance.stateMap_set(privateId, instance.STATE_IDLE, { sessionId: stateNode.data.sessionId })
+	// 	return;
+
+	// }
 }

@@ -123,7 +123,7 @@ export const OPTION_SET_BOOST_30ETH_SETTING = 304
 export const OPTION_SET_BOOST_CUSTOMETH_SETTING = 305
 export const OPTION_SET_BOOST_WITHDRAW = 306
 
-export const OPTION_VOLUME_BACK=399
+export const OPTION_VOLUME_BACK = 399
 
 
 export const OPTION_MSG_COPY_ADDRESS = 100
@@ -141,12 +141,14 @@ export const OPTION_MSG_SELL_ETH_0_100 = 116
 export const OPTION_MSG_SELL_ETH_X = 117
 
 export const STATE_IDLE = 0
-export const STATE_WAIT_FRESH_WALLET_MAX_TRANSACTION_COUNT = 1
-export const STATE_WAIT_MIN_FRESH_WALLET_COUNT = 2
-export const STATE_WAIT_WHALE_WALLET_MIN_BALANCE = 3
-export const STATE_WAIT_MIN_WHALE_WALLET_COUNT = 4
-export const STATE_WAIT_MIN_KYC_WALLET_COUNT = 5
-export const STATE_WAIT_INIT_ETH = 6
+export const STATE_CREATE_NEW_PROJECT = 1
+export const STATE_VIEW_MY_PROJECTS = 2
+export const STATE_MANAGE_PROJECTS = 3
+export const STATE_VIEW_HELP = 4
+export const STATE_WAIT_NEW_PROJECT_NAME = 5
+export const STATE_WAIT_NEW_PROJECT_TOKEN = 6
+export const STATE_WAIT_CHANGE_PROJECT_TOKEN = 7
+export const STATE_CONFIRM_DELETE_PROJECT = 8
 export const STATE_WAIT_INIT_USDT_USDC = 7
 export const STATE_WAIT_DAILY_STATISTIC_TOKEN_ADDRESS = 8
 export const STATE_WAIT_MIN_DORMANT_WALLET_COUNT = 9
@@ -166,6 +168,15 @@ export const STATE_WAIT_SET_USER_SELL_LO_AMOUNT = 20
 export const STATE_WAIT_SET_USER_BUY_AMOUNT = 21
 export const STATE_WAIT_ADD_AUTOTRADETOKEN = 22
 export const STATE_WAIT_WITHDRAW_ADDRESS = 23
+
+export const STATE_CHOOSE_PROJECT = 31; // 31~40
+
+export const STATE_DELETE_PROJECT = 41;	// 31~40
+
+export const STATE_CHANGE_TOKEN_PROJECT = 51; // 51~60
+
+export const STATE_BACK_TO_PROJECT_SETTING = 100;
+export const STATE_BACK_TO_MANAGE_PROJECT = 101;
 
 export const OPTION_MSG_SIMULATION_START = 130
 export const OPTION_MSG_SIMULATION_SETTING = 131
@@ -244,7 +255,7 @@ export const json_msgOption = (sessionId, tokenAddress, poolAddress, poolId, isM
 		json_buttonItem(`${sessionId}:${poolId}`, OPTION_MSG_BUY_ETH_0_1, 'Buy 0.1 Eth'),
 		json_buttonItem(`${sessionId}:${poolId}`, OPTION_MSG_BUY_ETH_0_5, 'Buy 0.5 Eth'),
 		json_buttonItem(`${sessionId}:${poolId}`, OPTION_MSG_BUY_ETH_X, 'Buy X Eth'),
-	]) 
+	])
 
 	json.push([
 		json_buttonItem(`${sessionId}:${poolId}`, OPTION_MSG_SELL_ETH_0_25, 'Sell 25 %'),
@@ -254,6 +265,70 @@ export const json_msgOption = (sessionId, tokenAddress, poolAddress, poolId, isM
 	])
 
 	return { title: '', options: json };
+}
+
+export const json_projectSettings = (sessionId) => {
+	const json = [
+		[
+			json_buttonItem(sessionId, -1, '🎖 Magic Base Volume Bot')
+		],
+		[
+			json_buttonItem(sessionId, STATE_CREATE_NEW_PROJECT, '🆕 New Project')
+		],
+		[
+			json_buttonItem(sessionId, STATE_MANAGE_PROJECTS, '✍ Manage Projects'),
+			json_buttonItem(sessionId, STATE_VIEW_MY_PROJECTS, '📂 My Projects'),
+		],
+		[
+			json_buttonItem(sessionId, STATE_VIEW_HELP, '📖 Help'),
+		]
+	]
+	return { title: '', options: json }
+}
+
+export const json_viewProjects = async (sessionId) => {
+	const session = sessions.get(sessionId);
+
+	const projects = await database.allProjects(session);
+
+	const json = [];
+	projects.map((project, index) => {
+		json.push([
+			json_buttonItem(sessionId, STATE_CHOOSE_PROJECT + index, `🗂 ${project.project_name}`)
+		])
+	})
+	json.push([
+		json_buttonItem(sessionId, STATE_BACK_TO_PROJECT_SETTING, '⬅ Back')
+	])
+	return { title: 'These are currently placed projects for you. Please select a project to use.', options: json }
+}
+
+export const json_manageProjects = async (sessionId) => {
+	const session = sessions.get(sessionId);
+
+	const projects = await database.allProjects(session);
+	const json = []
+	projects.map((project, index) => {
+		json.push([
+			json_buttonItem(sessionId, -1, `🗂 ${project.project_name}`),
+			json_buttonItem(sessionId, STATE_CHANGE_TOKEN_PROJECT + index, `💸 Change Token`),
+			json_buttonItem(sessionId, STATE_DELETE_PROJECT + index, `🗑 Delete`)
+		])
+	})
+	json.push([
+		json_buttonItem(sessionId, STATE_BACK_TO_PROJECT_SETTING, '⬅ Back')
+	])
+	return { title: 'These are currently placed projects for you. Please click delete button if you want to delete a project.', options: json }
+}
+
+export const json_deleteConfirmProjects = (sessionId) => {
+	const json = [
+		[
+			json_buttonItem(sessionId, STATE_BACK_TO_MANAGE_PROJECT, '❌ Cancel'),
+			json_buttonItem(sessionId, STATE_CONFIRM_DELETE_PROJECT, '✅ Confirm')
+		]
+	]
+	return { title: 'Do you really want to delete this project?', options: json }
 }
 
 export const json_boostVolumeSettings = (sessionId) => {
@@ -271,8 +346,11 @@ export const json_boostVolumeSettings = (sessionId) => {
 			json_buttonItem(sessionId, OPTION_SET_BOOST_WITHDRAW, '💰 Withdraw')
 		]
 	]
+	const title = `🏅 Welcome to "${session.target_project.project_name}" Project 🏅\n
+	🔍 Deposit ETH Amount Calculation:\nToken Buy ETH Amount * 1.2 * Wallet Count\n\n📜 Token Info: JASON/SOL\n${session.target_project.token_address}\n
+	⌛ Bot worked: 0 min\n💹 Bot state: idle\n\n💳 Your Deposit Wallet:\nD6qU2YydYtm4AcGoyjRVybQJPo5BCF1Xpe6xdRFcqoki\n💰 Balance: 0 ETH`
 
-	return { title: '', options: json };
+	return { title: title, options: json };
 }
 
 export const json_boostETHSettings = (sessionId) => {
@@ -484,7 +562,7 @@ const json_buyETHOption = async (sessionId, ethAmount) => {
 
 	json.push([json_buttonItem(sessionId, OPTION_VOLUME_BACK, 'Back')])
 	// json.push([json_buttonItem(sessionId, OPTION_SET_USER_WALLET_SETTING, 'Back')])
-	
+
 	if (session) {
 		session.charge_active = 1
 		await database.updateUser(session)
@@ -1373,7 +1451,86 @@ const executeCommand = async (chatid, messageId, callbackQueryId, option) => {
 	//stateMap_clear();
 
 	try {
-		if (cmd == SIMULATION_SET_TOKEN_ADDRESS) {
+		if (cmd == STATE_CREATE_NEW_PROJECT) {
+			const sessionId = id;
+			assert(sessionId)
+
+			const msg = `🖋Please input new project name.🖋`
+			sendMessage(chatid, msg)
+
+			await bot.answerCallbackQuery(callbackQueryId, { text: msg })
+			stateMap_set(chatid, STATE_WAIT_NEW_PROJECT_NAME, { sessionId })
+		} else if (cmd == STATE_VIEW_MY_PROJECTS) {
+			const sessionId = id;
+			assert(sessionId)
+
+			const menu = await json_viewProjects(sessionId)
+			stateMap_set(chatid, STATE_IDLE, { sessionId })
+			switchMenuWithTitle(chatid, messageId, menu.title, menu.options)
+		} else if (cmd >= STATE_CHOOSE_PROJECT && cmd <= STATE_CHOOSE_PROJECT + 9) {
+			const sessionId = id;
+			assert(sessionId)
+
+			const session = sessions.get(sessionId);
+
+			const projects = await database.allProjects(session);
+			const target_project = projects[cmd - STATE_CHOOSE_PROJECT];
+			session.target_project = target_project;
+
+			const menu = json_boostVolumeSettings(sessionId);
+			stateMap_set(chatid, STATE_IDLE, { sessionId })
+			switchMenuWithTitle(chatid, messageId, menu.title, menu.options)
+		} else if (cmd == STATE_BACK_TO_PROJECT_SETTING) {
+			const sessionId = id;
+			assert(sessionId)
+
+			const menu = json_projectSettings(sessionId)
+			stateMap_set(chatid, STATE_IDLE, { sessionId })
+			switchMenuWithTitle(chatid, messageId, privateBot.getWelcomeMessage(), menu.options)
+		} else if (cmd == STATE_BACK_TO_MANAGE_PROJECT) {
+			const sessionId = id;
+			assert(sessionId)
+
+			const menu = await json_manageProjects(sessionId)
+			stateMap_set(chatid, STATE_IDLE, { sessionId })
+			switchMenuWithTitle(chatid, messageId, menu.title, menu.options)
+		} else if (cmd == STATE_MANAGE_PROJECTS) {
+			const sessionId = id;
+			assert(sessionId)
+
+			const menu = await json_manageProjects(sessionId)
+			stateMap_set(chatid, STATE_IDLE, { sessionId })
+			switchMenuWithTitle(chatid, messageId, menu.title, menu.options)
+		} else if (cmd >= STATE_CHANGE_TOKEN_PROJECT && cmd <= STATE_CHANGE_TOKEN_PROJECT + 9) {
+			const sessionId = id;
+			assert(sessionId)
+
+			const session = sessions.get(sessionId);
+			session.change_token_project_id = cmd - STATE_CHANGE_TOKEN_PROJECT;
+			stateMap_set(chatid, STATE_WAIT_CHANGE_PROJECT_TOKEN, { sessionId });
+			sendMessage(chatid, "🖋Please input a token address for volume market making.🖋");
+		} else if (cmd >= STATE_DELETE_PROJECT && cmd <= STATE_DELETE_PROJECT + 9) {
+			const sessionId = id;
+			assert(sessionId)
+
+			const session = sessions.get(sessionId);
+			session.delete_project_id = cmd - STATE_DELETE_PROJECT;
+			const menu = json_deleteConfirmProjects(sessionId);
+			stateMap_set(chatid, STATE_IDLE, { sessionId });
+			switchMenuWithTitle(chatid, messageId, menu.title, menu.options)
+		} else if (cmd == STATE_CONFIRM_DELETE_PROJECT) {
+			const sessionId = id;
+			assert(sessionId)
+
+			const session = sessions.get(sessionId);
+			const projects = await database.allProjects(session);
+			const targetProject = projects[session.delete_project_id];
+			await database.removeProject(targetProject);
+
+			const menu = await json_manageProjects(sessionId);
+			stateMap_set(chatid, STATE_IDLE, { sessionId });
+			switchMenuWithTitle(chatid, messageId, menu.title, menu.options)
+		} else if (cmd == SIMULATION_SET_TOKEN_ADDRESS) {
 			const sessionId = id;
 			assert(sessionId)
 
@@ -1388,16 +1545,16 @@ const executeCommand = async (chatid, messageId, callbackQueryId, option) => {
 
 			const msg = `🔢 Please input your wallet count for volume boost. Value range is ${process.env.MIN_WALLET_DIST_COUNT}~${process.env.MAX_WALLET_DIST_COUNT}.`
 			sendMessage(chatid, msg)
-			await bot.answerCallbackQuery(callbackQueryId, {text: msg})
-			stateMap_set(chatid, SIMULATION_WAIT_VOLUME_WALLET_COUNT, {sessionId})
+			await bot.answerCallbackQuery(callbackQueryId, { text: msg })
+			stateMap_set(chatid, SIMULATION_WAIT_VOLUME_WALLET_COUNT, { sessionId })
 		} else if (cmd == SIMULATION_SET_VOLUME_INTERVAL) {
 			const sessionId = id;
 			assert(sessionId)
 
 			const msg = `🔢 Please input your volume boosting interval. Value range is ${process.env.MIN_VOLUME_BOOST_INTERVAL}s~${process.env.MAX_VOLUME_BOOST_INTERVAL}s.`
 			sendMessage(chatid, msg)
-			await bot.answerCallbackQuery(callbackQueryId, {text: msg})
-			stateMap_set(chatid, SIMULATION_WAIT_VOLUME_INTERVAL, {sessionId})
+			await bot.answerCallbackQuery(callbackQueryId, { text: msg })
+			stateMap_set(chatid, SIMULATION_WAIT_VOLUME_INTERVAL, { sessionId })
 		} else if (cmd == OPTION_SET_BOOST_WITHDRAW) {
 			const sessionId = id;
 			assert(sessionId)
@@ -1406,1071 +1563,1072 @@ const executeCommand = async (chatid, messageId, callbackQueryId, option) => {
 			sendMessage(chatid, msg)
 			await bot.answerCallbackQuery(callbackQueryId, { text: msg })
 			stateMap_set(chatid, STATE_WAIT_WITHDRAW_ADDRESS, { sessionId })
-		} else if (cmd == SIMULATION_SET_END_DATE) {
-			const sessionId = id;
-			assert(sessionId)
-
-			const msg = `Input end date (M/d/Y)`
-			sendMessage(chatid, msg)
-			await bot.answerCallbackQuery(callbackQueryId, { text: msg })
-			stateMap_set(chatid, SIMULATION_WAIT_END_DATE, { sessionId })
-		} else if (cmd == SIMULATION_SET_START_DATE) {
-			const sessionId = id;
-			assert(sessionId)
-
-			const msg = `Input start date (M/d/Y)`
-			sendMessage(chatid, msg)
-			await bot.answerCallbackQuery(callbackQueryId, { text: msg })
-			stateMap_set(chatid, SIMULATION_WAIT_START_DATE, { sessionId })
-		} else if (cmd == SIMULATION_SET_TRAILING_STOP_LOSS) {
-			const sessionId = id;
-			assert(sessionId)
-
-			const msg = `Input trailing stop loss ETH(0.0..)`
-			sendMessage(chatid, msg)
-			await bot.answerCallbackQuery(callbackQueryId, { text: msg })
-			stateMap_set(chatid, SIMULATION_WAIT_SET_TRAILING_STOP_LOSS, { sessionId })
-		} else if (cmd == SIMULATION_SET_PROFIT_TARGET) {
-			const sessionId = id;
-			assert(sessionId)
-
-			const msg = `Input Profit target (X 3)`
-			sendMessage(chatid, msg)
-			await bot.answerCallbackQuery(callbackQueryId, { text: msg })
-			stateMap_set(chatid, SIMULATION_WAIT_SET_PROFIT_TARGET, { sessionId })
-		} else if (cmd == SIMULATION_SET_INIT_ETH_AMOUNT) {
-			const sessionId = id;
-			assert(sessionId)
-
-			const msg = `Input ETH amount to invest`
-			sendMessage(chatid, msg)
-			await bot.answerCallbackQuery(callbackQueryId, { text: msg })
-			stateMap_set(chatid, SIMULATION_WAIT_SET_ETH, { sessionId })
-		} else if (cmd === OPTION_MSG_SIMULATION_SETTING) {
-			const sessionId = id;
-			const menu = json_simulationSettings(sessionId)
+		} 
+		// else if (cmd == SIMULATION_SET_END_DATE) {
+		// 	const sessionId = id;
+		// 	assert(sessionId)
+
+		// 	const msg = `Input end date (M/d/Y)`
+		// 	sendMessage(chatid, msg)
+		// 	await bot.answerCallbackQuery(callbackQueryId, { text: msg })
+		// 	stateMap_set(chatid, SIMULATION_WAIT_END_DATE, { sessionId })
+		// } else if (cmd == SIMULATION_SET_START_DATE) {
+		// 	const sessionId = id;
+		// 	assert(sessionId)
+
+		// 	const msg = `Input start date (M/d/Y)`
+		// 	sendMessage(chatid, msg)
+		// 	await bot.answerCallbackQuery(callbackQueryId, { text: msg })
+		// 	stateMap_set(chatid, SIMULATION_WAIT_START_DATE, { sessionId })
+		// } else if (cmd == SIMULATION_SET_TRAILING_STOP_LOSS) {
+		// 	const sessionId = id;
+		// 	assert(sessionId)
+
+		// 	const msg = `Input trailing stop loss ETH(0.0..)`
+		// 	sendMessage(chatid, msg)
+		// 	await bot.answerCallbackQuery(callbackQueryId, { text: msg })
+		// 	stateMap_set(chatid, SIMULATION_WAIT_SET_TRAILING_STOP_LOSS, { sessionId })
+		// } else if (cmd == SIMULATION_SET_PROFIT_TARGET) {
+		// 	const sessionId = id;
+		// 	assert(sessionId)
+
+		// 	const msg = `Input Profit target (X 3)`
+		// 	sendMessage(chatid, msg)
+		// 	await bot.answerCallbackQuery(callbackQueryId, { text: msg })
+		// 	stateMap_set(chatid, SIMULATION_WAIT_SET_PROFIT_TARGET, { sessionId })
+		// } else if (cmd == SIMULATION_SET_INIT_ETH_AMOUNT) {
+		// 	const sessionId = id;
+		// 	assert(sessionId)
+
+		// 	const msg = `Input ETH amount to invest`
+		// 	sendMessage(chatid, msg)
+		// 	await bot.answerCallbackQuery(callbackQueryId, { text: msg })
+		// 	stateMap_set(chatid, SIMULATION_WAIT_SET_ETH, { sessionId })
+		// } else if (cmd === OPTION_MSG_SIMULATION_SETTING) {
+		// 	const sessionId = id;
+		// 	const menu = json_simulationSettings(sessionId)
 
-			switchMenuWithTitle(chatid, messageId, get_menuTitle(sessionId, menu.title), menu.options)
-		} else if (cmd === OPTION_MSG_SIMULATION_START) {
-			const sessionId = id;
-			// if (web3Inst) {
-			await simulation(sessionId);
-			// } else {
-			// 	sendMessage(sessionId, `🚫 Sorry, Now can't run simulation because network err`);
-			// }
-		} else if (cmd === SIMULATION_MAIN_SETTING) {
-			const sessionId = id;
-			assert(sessionId)
-			let session = sessions.get(sessionId)
-			const simulation_settings = `
-			<u>Simulation Setting</u>
-			🥊 Invested ETH: ${session.invest_amount}
-			🔫 Profit target: ${session.profit_target}
-			📅 Start date: ${session.start_date}
-			📅 End date: ${session.end_date}
-			`
-			const menu = json_simulation_button_Option(session.chatid);
-			stateMap_set(session.chatid, STATE_IDLE, { sessionId: session.chatid })
+		// 	switchMenuWithTitle(chatid, messageId, get_menuTitle(sessionId, menu.title), menu.options)
+		// } else if (cmd === OPTION_MSG_SIMULATION_START) {
+		// 	const sessionId = id;
+		// 	// if (web3Inst) {
+		// 	await simulation(sessionId);
+		// 	// } else {
+		// 	// 	sendMessage(sessionId, `🚫 Sorry, Now can't run simulation because network err`);
+		// 	// }
+		// } else if (cmd === SIMULATION_MAIN_SETTING) {
+		// 	const sessionId = id;
+		// 	assert(sessionId)
+		// 	let session = sessions.get(sessionId)
+		// 	const simulation_settings = `
+		// 	<u>Simulation Setting</u>
+		// 	🥊 Invested ETH: ${session.invest_amount}
+		// 	🔫 Profit target: ${session.profit_target}
+		// 	📅 Start date: ${session.start_date}
+		// 	📅 End date: ${session.end_date}
+		// 	`
+		// 	const menu = json_simulation_button_Option(session.chatid);
+		// 	stateMap_set(session.chatid, STATE_IDLE, { sessionId: session.chatid })
 
-			sendMessageToVipUser(session, simulation_settings, menu)
+		// 	sendMessageToVipUser(session, simulation_settings, menu)
 
-		} else if (cmd === OPTION_MAIN_SETTING) {
+		// } else if (cmd === OPTION_MAIN_SETTING) {
 
-			const sessionId = id;
-			assert(sessionId)
+		// 	const sessionId = id;
+		// 	assert(sessionId)
 
-			stateMap_set(chatid, STATE_IDLE, { sessionId })
+		// 	stateMap_set(chatid, STATE_IDLE, { sessionId })
 
-			const menu = await json_botSettings(sessionId);
-			switchMenuWithTitle(chatid, messageId, get_menuTitle(sessionId, menu.title), menu.options)
+		// 	const menu = await json_botSettings(sessionId);
+		// 	switchMenuWithTitle(chatid, messageId, get_menuTitle(sessionId, menu.title), menu.options)
 
-		} else if (cmd === OPTION_SET_INIT_LIQUIDITY) {
+		// } else if (cmd === OPTION_SET_INIT_LIQUIDITY) {
 
-			const sessionId = id;
-			assert(sessionId)
+		// 	const sessionId = id;
+		// 	assert(sessionId)
 
-			const menu = await json_setInitLiquidity(sessionId);
-			await switchMenuWithTitle(chatid, messageId, get_menuTitle(sessionId, menu.title), menu.options)
+		// 	const menu = await json_setInitLiquidity(sessionId);
+		// 	await switchMenuWithTitle(chatid, messageId, get_menuTitle(sessionId, menu.title), menu.options)
 
-		} else if (cmd === OPTION_SET_INIT_LIQUIDITY_ETH) {
+		// } else if (cmd === OPTION_SET_INIT_LIQUIDITY_ETH) {
 
-			const sessionId = id;
-			assert(sessionId)
+		// 	const sessionId = id;
+		// 	assert(sessionId)
 
-			const msg = `Input min ETH balance of initial liquidity`
-			sendMessage(chatid, msg)
-			await bot.answerCallbackQuery(callbackQueryId, { text: msg })
+		// 	const msg = `Input min ETH balance of initial liquidity`
+		// 	sendMessage(chatid, msg)
+		// 	await bot.answerCallbackQuery(callbackQueryId, { text: msg })
 
-			stateMap_set(chatid, STATE_WAIT_INIT_ETH, { sessionId })
+		// 	stateMap_set(chatid, STATE_WAIT_INIT_ETH, { sessionId })
 
-		} else if (cmd === OPTION_SET_INIT_LIQUIDITY_USD) {
+		// } else if (cmd === OPTION_SET_INIT_LIQUIDITY_USD) {
 
-			const sessionId = id;
-			assert(sessionId)
+		// 	const sessionId = id;
+		// 	assert(sessionId)
 
-			const msg = `Input min USDT or USDC balance of initial liquidity`
-			sendMessage(chatid, msg)
-			await bot.answerCallbackQuery(callbackQueryId, { text: msg })
+		// 	const msg = `Input min USDT or USDC balance of initial liquidity`
+		// 	sendMessage(chatid, msg)
+		// 	await bot.answerCallbackQuery(callbackQueryId, { text: msg })
 
-			stateMap_set(chatid, STATE_WAIT_INIT_USDT_USDC, { sessionId })
+		// 	stateMap_set(chatid, STATE_WAIT_INIT_USDT_USDC, { sessionId })
 
-		} else if (cmd === OPTION_SET_FRESH_WALLET_SETTING) {
+		// } else if (cmd === OPTION_SET_FRESH_WALLET_SETTING) {
 
-			const sessionId = id;
-			assert(sessionId)
+		// 	const sessionId = id;
+		// 	assert(sessionId)
 
-			const menu = await json_setFresh(sessionId);
-			if (menu) {
-				switchMenuWithTitle(chatid, messageId, get_menuTitle(sessionId, menu.title), menu.options)
-			}
+		// 	const menu = await json_setFresh(sessionId);
+		// 	if (menu) {
+		// 		switchMenuWithTitle(chatid, messageId, get_menuTitle(sessionId, menu.title), menu.options)
+		// 	}
 
-		} else if (cmd === OPTION_SET_FRESH_WALLET_TURN_ON) {
+		// } else if (cmd === OPTION_SET_FRESH_WALLET_TURN_ON) {
 
-			const sessionId = id;
-			assert(sessionId)
+		// 	const sessionId = id;
+		// 	assert(sessionId)
 
-			sendMessage(chatid, 'Kindly enter max fresh transaction count')
+		// 	sendMessage(chatid, 'Kindly enter max fresh transaction count')
 
-			stateMap_set(chatid, STATE_WAIT_FRESH_WALLET_MAX_TRANSACTION_COUNT, { sessionId })
+		// 	stateMap_set(chatid, STATE_WAIT_FRESH_WALLET_MAX_TRANSACTION_COUNT, { sessionId })
 
-		} else if (cmd === OPTION_SET_FRESH_WALLET_TURN_OFF) {
+		// } else if (cmd === OPTION_SET_FRESH_WALLET_TURN_OFF) {
 
-			const sessionId = id;
-			assert(sessionId)
+		// 	const sessionId = id;
+		// 	assert(sessionId)
 
-			let session = sessions.get(sessionId)
-			if (session) {
+		// 	let session = sessions.get(sessionId)
+		// 	if (session) {
 
-				session.max_fresh_transaction_count = 0
-				session.min_fresh_wallet_count = 0
+		// 		session.max_fresh_transaction_count = 0
+		// 		session.min_fresh_wallet_count = 0
 
-				await database.updateUser(session)
+		// 		await database.updateUser(session)
 
-				sendMessage(chatid, `✅ Fresh wallet filter has been turned off`)
+		// 		sendMessage(chatid, `✅ Fresh wallet filter has been turned off`)
 
-				executeCommand(chatid, messageId, callbackQueryId, { c: OPTION_SET_FRESH_WALLET_SETTING, k: sessionId })
-			}
+		// 		executeCommand(chatid, messageId, callbackQueryId, { c: OPTION_SET_FRESH_WALLET_SETTING, k: sessionId })
+		// 	}
 
-		} else if (cmd === OPTION_SET_WHALE_WALLET_SETTING) {
+		// } else if (cmd === OPTION_SET_WHALE_WALLET_SETTING) {
 
-			const sessionId = id;
-			assert(sessionId)
+		// 	const sessionId = id;
+		// 	assert(sessionId)
 
-			const menu = await json_setWhale(sessionId);
-			if (menu) {
-				switchMenuWithTitle(chatid, messageId, get_menuTitle(sessionId, menu.title), menu.options)
-			}
+		// 	const menu = await json_setWhale(sessionId);
+		// 	if (menu) {
+		// 		switchMenuWithTitle(chatid, messageId, get_menuTitle(sessionId, menu.title), menu.options)
+		// 	}
 
-		} else if (cmd === OPTION_SET_WHALE_WALLET_TURN_ON) {
+		// } else if (cmd === OPTION_SET_WHALE_WALLET_TURN_ON) {
 
-			const sessionId = id;
-			assert(sessionId)
+		// 	const sessionId = id;
+		// 	assert(sessionId)
 
-			sendMessage(chatid, 'Kindly enter whale wallet min balance')
+		// 	sendMessage(chatid, 'Kindly enter whale wallet min balance')
 
-			stateMap_set(chatid, STATE_WAIT_WHALE_WALLET_MIN_BALANCE, { sessionId })
+		// 	stateMap_set(chatid, STATE_WAIT_WHALE_WALLET_MIN_BALANCE, { sessionId })
 
-		} else if (cmd === OPTION_SET_WHALE_WALLET_TURN_OFF) {
+		// } else if (cmd === OPTION_SET_WHALE_WALLET_TURN_OFF) {
 
-			const sessionId = id;
-			assert(sessionId)
+		// 	const sessionId = id;
+		// 	assert(sessionId)
 
-			let session = sessions.get(sessionId)
-			if (session) {
+		// 	let session = sessions.get(sessionId)
+		// 	if (session) {
 
-				session.min_whale_balance = 0
-				session.min_whale_wallet_count = 0
+		// 		session.min_whale_balance = 0
+		// 		session.min_whale_wallet_count = 0
 
-				await database.updateUser(session)
+		// 		await database.updateUser(session)
 
-				sendMessage(chatid, `✅ Whale wallet filter has been turned off`)
+		// 		sendMessage(chatid, `✅ Whale wallet filter has been turned off`)
 
-				executeCommand(chatid, messageId, callbackQueryId, { c: OPTION_SET_WHALE_WALLET_SETTING, k: sessionId })
-			}
+		// 		executeCommand(chatid, messageId, callbackQueryId, { c: OPTION_SET_WHALE_WALLET_SETTING, k: sessionId })
+		// 	}
 
-		} else if (cmd === OPTION_SET_KYC_WALLET_SETTING) {
+		// } else if (cmd === OPTION_SET_KYC_WALLET_SETTING) {
 
-			const sessionId = id;
-			assert(sessionId)
+		// 	const sessionId = id;
+		// 	assert(sessionId)
 
-			const menu = await json_setKyc(sessionId);
-			switchMenuWithTitle(chatid, messageId, get_menuTitle(sessionId, menu.title), menu.options)
+		// 	const menu = await json_setKyc(sessionId);
+		// 	switchMenuWithTitle(chatid, messageId, get_menuTitle(sessionId, menu.title), menu.options)
 
-		} else if (cmd === OPTION_SET_KYC_WALLET_TURN_ON) {
+		// } else if (cmd === OPTION_SET_KYC_WALLET_TURN_ON) {
 
-			const sessionId = id;
-			assert(sessionId)
+		// 	const sessionId = id;
+		// 	assert(sessionId)
 
-			sendMessage(chatid, 'Kindly min KYC wallet count')
+		// 	sendMessage(chatid, 'Kindly min KYC wallet count')
 
-			stateMap_set(chatid, STATE_WAIT_MIN_KYC_WALLET_COUNT, { sessionId })
+		// 	stateMap_set(chatid, STATE_WAIT_MIN_KYC_WALLET_COUNT, { sessionId })
 
-		} else if (cmd === OPTION_SET_KYC_WALLET_TURN_OFF) {
+		// } else if (cmd === OPTION_SET_KYC_WALLET_TURN_OFF) {
 
-			const sessionId = id;
-			assert(sessionId)
+		// 	const sessionId = id;
+		// 	assert(sessionId)
 
-			let session = sessions.get(sessionId)
-			if (session) {
+		// 	let session = sessions.get(sessionId)
+		// 	if (session) {
 
-				session.min_kyc_wallet_count = 0
+		// 		session.min_kyc_wallet_count = 0
 
-				await database.updateUser(session)
+		// 		await database.updateUser(session)
 
-				sendMessage(chatid, `✅ KYC wallet filter has been turned off`)
+		// 		sendMessage(chatid, `✅ KYC wallet filter has been turned off`)
 
-				executeCommand(chatid, messageId, callbackQueryId, { c: OPTION_SET_KYC_WALLET_SETTING, k: sessionId })
-			}
+		// 		executeCommand(chatid, messageId, callbackQueryId, { c: OPTION_SET_KYC_WALLET_SETTING, k: sessionId })
+		// 	}
 
-		} else if (cmd === OPTION_SET_DEFAULT) {
+		// } else if (cmd === OPTION_SET_DEFAULT) {
 
-			const sessionId = id;
-			assert(sessionId)
+		// 	const sessionId = id;
+		// 	assert(sessionId)
 
-			const msg = `Please enter 'Yes' to make sure you want to reset configuration. (Yes for set to default, otherwise, cancel default set)`
-			sendMessage(chatid, msg)
-			await bot.answerCallbackQuery(callbackQueryId, { text: msg })
+		// 	const msg = `Please enter 'Yes' to make sure you want to reset configuration. (Yes for set to default, otherwise, cancel default set)`
+		// 	sendMessage(chatid, msg)
+		// 	await bot.answerCallbackQuery(callbackQueryId, { text: msg })
 
-			stateMap_set(chatid, STATE_WAIT_SET_DEFAULT, { sessionId })
+		// 	stateMap_set(chatid, STATE_WAIT_SET_DEFAULT, { sessionId })
 
-		} else if (cmd === OPTION_SET_DTGS) {
-			const sessionId = id;
-			assert(sessionId)
-			let session = sessions.get(sessionId)
-			if (session.tier < TIER_STATE_DIAMOND) {
-				sendMessage(session.chatid, "This setting is only available to users of diamond or higher")
-				return;
-			}
+		// } else if (cmd === OPTION_SET_DTGS) {
+		// 	const sessionId = id;
+		// 	assert(sessionId)
+		// 	let session = sessions.get(sessionId)
+		// 	if (session.tier < TIER_STATE_DIAMOND) {
+		// 		sendMessage(session.chatid, "This setting is only available to users of diamond or higher")
+		// 		return;
+		// 	}
 
-			const menu = await json_setDTGS(sessionId);
-			switchMenuWithTitle(chatid, messageId, get_menuTitle(sessionId, menu.title), menu.options)
+		// 	const menu = await json_setDTGS(sessionId);
+		// 	switchMenuWithTitle(chatid, messageId, get_menuTitle(sessionId, menu.title), menu.options)
 
-		} /*else if (cmd === OPTION_DTGS_SELECT_DEX) {
+		// } /*else if (cmd === OPTION_DTGS_SELECT_DEX) {
 
-			const sessionId = id;
-			assert(sessionId)
+		// 	const sessionId = id;
+		// 	assert(sessionId)
 
-			const menu = await json_selectDexOption(sessionId);
-			switchMenuWithTitle(chatid, messageId, get_menuTitle(sessionId, menu.title), menu.options)
+		// 	const menu = await json_selectDexOption(sessionId);
+		// 	switchMenuWithTitle(chatid, messageId, get_menuTitle(sessionId, menu.title), menu.options)
 
-		}*/ else if (cmd === OPTION_DTGS_INPUT_TOKEN_ADDRESS) {
+		// }*/ else if (cmd === OPTION_DTGS_INPUT_TOKEN_ADDRESS) {
 
-			// const parts = id.split(':')
-			// assert(parts.length == 2)
-			// const sessionId = parts[0]
-			// const dexId = parseInt(parts[1])
-			// assert(sessionId)
-			// assert(dexId > 0)
+		// 	// const parts = id.split(':')
+		// 	// assert(parts.length == 2)
+		// 	// const sessionId = parts[0]
+		// 	// const dexId = parseInt(parts[1])
+		// 	// assert(sessionId)
+		// 	// assert(dexId > 0)
 
-			const sessionId = id;
-			assert(sessionId)
+		// 	const sessionId = id;
+		// 	assert(sessionId)
 
-			const msg = `Input token address for daily top gainer's statistics`
-			sendMessage(chatid, msg)
-			await bot.answerCallbackQuery(callbackQueryId, { text: msg })
+		// 	const msg = `Input token address for daily top gainer's statistics`
+		// 	sendMessage(chatid, msg)
+		// 	await bot.answerCallbackQuery(callbackQueryId, { text: msg })
 
-			stateMap_set(chatid, STATE_WAIT_DAILY_STATISTIC_TOKEN_ADDRESS, { sessionId })
-			// stateMap_set(chatid, STATE_WAIT_DAILY_STATISTIC_TOKEN_ADDRESS, { sessionId, dexId })
+		// 	stateMap_set(chatid, STATE_WAIT_DAILY_STATISTIC_TOKEN_ADDRESS, { sessionId })
+		// 	// stateMap_set(chatid, STATE_WAIT_DAILY_STATISTIC_TOKEN_ADDRESS, { sessionId, dexId })
 
-		} else if (cmd === OPTION_DTGS_SHOW_TOKENS) {
+		// } else if (cmd === OPTION_DTGS_SHOW_TOKENS) {
 
-			const sessionId = id;
-			assert(sessionId)
+		// 	const sessionId = id;
+		// 	assert(sessionId)
 
-			const menu = await json_showTokensOption(sessionId);
-			switchMenuWithTitle(chatid, messageId, get_menuTitle(sessionId, menu.title), menu.options)
+		// 	const menu = await json_showTokensOption(sessionId);
+		// 	switchMenuWithTitle(chatid, messageId, get_menuTitle(sessionId, menu.title), menu.options)
 
-		} else if (cmd === OPTION_DTGS_DELETE_ALL_TOKEN) {
+		// } else if (cmd === OPTION_DTGS_DELETE_ALL_TOKEN) {
 
-			const sessionId = id;
-			assert(sessionId)
+		// 	const sessionId = id;
+		// 	assert(sessionId)
 
-			const result = await database.removeTokenByUser(sessionId)
-			if (result.deletedCount > 0) {
-				// sendMessage(chatid, `✅ All of pool addresses you added has been successfully removed.`)	
-				await bot.answerCallbackQuery(callbackQueryId, { text: `Successfully removed` })
+		// 	const result = await database.removeTokenByUser(sessionId)
+		// 	if (result.deletedCount > 0) {
+		// 		// sendMessage(chatid, `✅ All of pool addresses you added has been successfully removed.`)	
+		// 		await bot.answerCallbackQuery(callbackQueryId, { text: `Successfully removed` })
 
-				let stateNode = stateMap_get(chatid)
-				if (stateNode) {
-					executeCommand(chatid, messageId, callbackQueryId, { c: OPTION_DTGS_SHOW_TOKENS, k: stateNode.data.sessionId })
-				}
-			}
+		// 		let stateNode = stateMap_get(chatid)
+		// 		if (stateNode) {
+		// 			executeCommand(chatid, messageId, callbackQueryId, { c: OPTION_DTGS_SHOW_TOKENS, k: stateNode.data.sessionId })
+		// 		}
+		// 	}
 
-		} else if (cmd === OPTION_DTGS_DELETE_TOKEN) {
+		// } else if (cmd === OPTION_DTGS_DELETE_TOKEN) {
 
-			const tokenId = id
-			assert(tokenId)
+		// 	const tokenId = id
+		// 	assert(tokenId)
 
-			await database.removeToken(tokenId)
-			//sendMessage(chatid, `✅ The pool addresses you selected has been successfully removed.`)
-			await bot.answerCallbackQuery(callbackQueryId, { text: `Successfully removed` })
+		// 	await database.removeToken(tokenId)
+		// 	//sendMessage(chatid, `✅ The pool addresses you selected has been successfully removed.`)
+		// 	await bot.answerCallbackQuery(callbackQueryId, { text: `Successfully removed` })
 
-			let stateNode = stateMap_get(chatid)
+		// 	let stateNode = stateMap_get(chatid)
 
-			if (stateNode) {
-				executeCommand(chatid, messageId, callbackQueryId, { c: OPTION_DTGS_SHOW_TOKENS, k: stateNode.data.sessionId })
-			}
-		} else if (cmd === OPTION_SET_LPLOCK) {
+		// 	if (stateNode) {
+		// 		executeCommand(chatid, messageId, callbackQueryId, { c: OPTION_DTGS_SHOW_TOKENS, k: stateNode.data.sessionId })
+		// 	}
+		// } else if (cmd === OPTION_SET_LPLOCK) {
 
-			const sessionId = id;
-			assert(sessionId)
+		// 	const sessionId = id;
+		// 	assert(sessionId)
 
-			const menu = await json_setLPLock(sessionId);
-			if (menu) {
-				switchMenuWithTitle(chatid, messageId, get_menuTitle(sessionId, menu.title), menu.options)
-			}
+		// 	const menu = await json_setLPLock(sessionId);
+		// 	if (menu) {
+		// 		switchMenuWithTitle(chatid, messageId, get_menuTitle(sessionId, menu.title), menu.options)
+		// 	}
 
-		} else if (cmd === OPTION_SET_LPLOCK_TURN_ON || cmd === OPTION_SET_LPLOCK_TURN_OFF) {
+		// } else if (cmd === OPTION_SET_LPLOCK_TURN_ON || cmd === OPTION_SET_LPLOCK_TURN_OFF) {
 
-			const sessionId = id;
-			assert(sessionId)
+		// 	const sessionId = id;
+		// 	assert(sessionId)
 
-			let session = sessions.get(sessionId)
-			if (session) {
+		// 	let session = sessions.get(sessionId)
+		// 	if (session) {
 
-				if (cmd === OPTION_SET_LPLOCK_TURN_ON) {
-					session.lp_lock = 1
-				} else {
-					session.lp_lock = 0
-				}
+		// 		if (cmd === OPTION_SET_LPLOCK_TURN_ON) {
+		// 			session.lp_lock = 1
+		// 		} else {
+		// 			session.lp_lock = 0
+		// 		}
 
-				await database.updateUser(session)
+		// 		await database.updateUser(session)
 
-				if (session.lp_lock) {
-					//await bot.answerCallbackQuery(callbackQueryId, { text: `LP lock filter has been turned on` })
-					sendMessage(chatid, `✅ LP lock filter has been turned on`)
+		// 		if (session.lp_lock) {
+		// 			//await bot.answerCallbackQuery(callbackQueryId, { text: `LP lock filter has been turned on` })
+		// 			sendMessage(chatid, `✅ LP lock filter has been turned on`)
 
-				} else {
-					//await bot.answerCallbackQuery(callbackQueryId, { text: `LP lock filter has been turned off` })
-					sendMessage(chatid, `✅ LP lock filter has been turned off`)
-				}
+		// 		} else {
+		// 			//await bot.answerCallbackQuery(callbackQueryId, { text: `LP lock filter has been turned off` })
+		// 			sendMessage(chatid, `✅ LP lock filter has been turned off`)
+		// 		}
 
-				const menu = await json_setLPLock(sessionId);
-				if (menu) {
-					switchMenuWithTitle(chatid, messageId, get_menuTitle(sessionId, menu.title), menu.options)
-				}
-			}
-		} else if (cmd === OPTION_SET_HONEYPOT) {
+		// 		const menu = await json_setLPLock(sessionId);
+		// 		if (menu) {
+		// 			switchMenuWithTitle(chatid, messageId, get_menuTitle(sessionId, menu.title), menu.options)
+		// 		}
+		// 	}
+		// } else if (cmd === OPTION_SET_HONEYPOT) {
 
-			const sessionId = id;
-			assert(sessionId)
+		// 	const sessionId = id;
+		// 	assert(sessionId)
 
-			const menu = await json_setHoneypot(sessionId);
-			if (menu) {
-				switchMenuWithTitle(chatid, messageId, get_menuTitle(sessionId, menu.title), menu.options)
-			}
+		// 	const menu = await json_setHoneypot(sessionId);
+		// 	if (menu) {
+		// 		switchMenuWithTitle(chatid, messageId, get_menuTitle(sessionId, menu.title), menu.options)
+		// 	}
 
-		} else if (cmd === OPTION_SET_HONEYPOT_TURN_ON || cmd === OPTION_SET_HONEYPOT_TURN_OFF) {
+		// } else if (cmd === OPTION_SET_HONEYPOT_TURN_ON || cmd === OPTION_SET_HONEYPOT_TURN_OFF) {
 
-			const sessionId = id;
-			assert(sessionId)
+		// 	const sessionId = id;
+		// 	assert(sessionId)
 
-			let session = sessions.get(sessionId)
-			if (session) {
+		// 	let session = sessions.get(sessionId)
+		// 	if (session) {
 
-				if (cmd === OPTION_SET_HONEYPOT_TURN_ON) {
-					session.honeypot = 1
-				} else {
-					session.honeypot = 0
-				}
+		// 		if (cmd === OPTION_SET_HONEYPOT_TURN_ON) {
+		// 			session.honeypot = 1
+		// 		} else {
+		// 			session.honeypot = 0
+		// 		}
 
-				await database.updateUser(session)
+		// 		await database.updateUser(session)
 
-				if (session.honeypot) {
-					//await bot.answerCallbackQuery(callbackQueryId, { text: `Honeypot filter has been turned on` })
-					sendMessage(chatid, `✅ Honeypot filter has been turned on. You will receive the call which indicates [Honeypot = No]`)
+		// 		if (session.honeypot) {
+		// 			//await bot.answerCallbackQuery(callbackQueryId, { text: `Honeypot filter has been turned on` })
+		// 			sendMessage(chatid, `✅ Honeypot filter has been turned on. You will receive the call which indicates [Honeypot = No]`)
 
-				} else {
-					//await bot.answerCallbackQuery(callbackQueryId, { text: `Honeypot filter has been turned off` })
-					sendMessage(chatid, `✅ LP lock filter has been turned off`)
-				}
+		// 		} else {
+		// 			//await bot.answerCallbackQuery(callbackQueryId, { text: `Honeypot filter has been turned off` })
+		// 			sendMessage(chatid, `✅ LP lock filter has been turned off`)
+		// 		}
 
-				const menu = await json_setHoneypot(sessionId);
-				if (menu) {
-					switchMenuWithTitle(chatid, messageId, get_menuTitle(sessionId, menu.title), menu.options)
-				}
-			}
+		// 		const menu = await json_setHoneypot(sessionId);
+		// 		if (menu) {
+		// 			switchMenuWithTitle(chatid, messageId, get_menuTitle(sessionId, menu.title), menu.options)
+		// 		}
+		// 	}
 
-		} else if (cmd === OPTION_SET_CONTRACT_AGE) {
+		// } else if (cmd === OPTION_SET_CONTRACT_AGE) {
 
-			const sessionId = id;
-			assert(sessionId)
+		// 	const sessionId = id;
+		// 	assert(sessionId)
 
-			const menu = await json_setContractAge(sessionId);
+		// 	const menu = await json_setContractAge(sessionId);
 
-			if (menu) {
-				switchMenuWithTitle(chatid, messageId, get_menuTitle(sessionId, menu.title), menu.options)
-			}
+		// 	if (menu) {
+		// 		switchMenuWithTitle(chatid, messageId, get_menuTitle(sessionId, menu.title), menu.options)
+		// 	}
 
-		} else if (cmd === OPTION_SET_CONTRACT_AGE_PLUS0_1DAY || cmd === OPTION_SET_CONTRACT_AGE_PLUS1DAY || cmd === OPTION_SET_CONTRACT_AGE_PLUS1MONTH || cmd === OPTION_SET_CONTRACT_AGE_PLUS1YEAR || cmd === OPTION_SET_CONTRACT_AGE_TURN_OFF) {
+		// } else if (cmd === OPTION_SET_CONTRACT_AGE_PLUS0_1DAY || cmd === OPTION_SET_CONTRACT_AGE_PLUS1DAY || cmd === OPTION_SET_CONTRACT_AGE_PLUS1MONTH || cmd === OPTION_SET_CONTRACT_AGE_PLUS1YEAR || cmd === OPTION_SET_CONTRACT_AGE_TURN_OFF) {
 
-			const sessionId = id;
-			assert(sessionId)
+		// 	const sessionId = id;
+		// 	assert(sessionId)
 
-			let session = sessions.get(sessionId)
-			if (session) {
+		// 	let session = sessions.get(sessionId)
+		// 	if (session) {
 
-				if (cmd === OPTION_SET_CONTRACT_AGE_PLUS0_1DAY) {
+		// 		if (cmd === OPTION_SET_CONTRACT_AGE_PLUS0_1DAY) {
 
-					session.contract_age = 0.1
+		// 			session.contract_age = 0.1
 
-				} else if (cmd === OPTION_SET_CONTRACT_AGE_PLUS1DAY) {
+		// 		} else if (cmd === OPTION_SET_CONTRACT_AGE_PLUS1DAY) {
 
-					session.contract_age = 1
+		// 			session.contract_age = 1
 
-				} else if (cmd === OPTION_SET_CONTRACT_AGE_PLUS1MONTH) {
+		// 		} else if (cmd === OPTION_SET_CONTRACT_AGE_PLUS1MONTH) {
 
-					session.contract_age = 30
+		// 			session.contract_age = 30
 
-				} else if (cmd === OPTION_SET_CONTRACT_AGE_PLUS1YEAR) {
+		// 		} else if (cmd === OPTION_SET_CONTRACT_AGE_PLUS1YEAR) {
 
-					session.contract_age = 365
+		// 			session.contract_age = 365
 
-				} else {
+		// 		} else {
 
-					session.contract_age = 0
-				}
+		// 			session.contract_age = 0
+		// 		}
 
-				await database.updateUser(session)
+		// 		await database.updateUser(session)
 
-				if (session.contract_age !== 0) {
-					//await bot.answerCallbackQuery(callbackQueryId, { text: `Contract Age filter has been turned on` })
-					sendMessage(chatid, `✅ Contract Age filter has been turned on [${session.contract_age}+ days]`)
+		// 		if (session.contract_age !== 0) {
+		// 			//await bot.answerCallbackQuery(callbackQueryId, { text: `Contract Age filter has been turned on` })
+		// 			sendMessage(chatid, `✅ Contract Age filter has been turned on [${session.contract_age}+ days]`)
 
-				} else {
-					//await bot.answerCallbackQuery(callbackQueryId, { text: `Contract Age filter has been turned off` })
-					sendMessage(chatid, `✅ Contract Age filter has been turned off`)
-				}
+		// 		} else {
+		// 			//await bot.answerCallbackQuery(callbackQueryId, { text: `Contract Age filter has been turned off` })
+		// 			sendMessage(chatid, `✅ Contract Age filter has been turned off`)
+		// 		}
 
-				const menu = await json_setContractAge(sessionId);
-				if (menu) {
-					switchMenuWithTitle(chatid, messageId, get_menuTitle(sessionId, menu.title), menu.options)
-				}
-			}
+		// 		const menu = await json_setContractAge(sessionId);
+		// 		if (menu) {
+		// 			switchMenuWithTitle(chatid, messageId, get_menuTitle(sessionId, menu.title), menu.options)
+		// 		}
+		// 	}
 
-		} else if (cmd === OPTION_SET_CONTRACT_AGE_PLUSNUMBERDAYS) {
+		// } else if (cmd === OPTION_SET_CONTRACT_AGE_PLUSNUMBERDAYS) {
 
-			const sessionId = id;
-			assert(sessionId)
+		// 	const sessionId = id;
+		// 	assert(sessionId)
 
-			const msg = `Kindly enter minimum contract age`
-			sendMessage(chatid, msg)
-			stateMap_set(chatid, STATE_WAIT_MIN_CONTRACT_AGE, { sessionId })
+		// 	const msg = `Kindly enter minimum contract age`
+		// 	sendMessage(chatid, msg)
+		// 	stateMap_set(chatid, STATE_WAIT_MIN_CONTRACT_AGE, { sessionId })
 
-		} else if (cmd === OPTION_SET_DORMANT) {
+		// } else if (cmd === OPTION_SET_DORMANT) {
 
-			const sessionId = id;
-			assert(sessionId)
+		// 	const sessionId = id;
+		// 	assert(sessionId)
 
-			const menu = await json_setDormant(sessionId);
+		// 	const menu = await json_setDormant(sessionId);
 
-			if (menu) {
-				switchMenuWithTitle(chatid, messageId, get_menuTitle(sessionId, menu.title), menu.options)
-			}
+		// 	if (menu) {
+		// 		switchMenuWithTitle(chatid, messageId, get_menuTitle(sessionId, menu.title), menu.options)
+		// 	}
 
-		} else if (cmd === OPTION_SET_DORMANT_PLUS1MONTH
-			|| cmd === OPTION_SET_DORMANT_PLUS3MONTH
-			|| cmd === OPTION_SET_DORMANT_PLUS6MONTH
-			|| cmd === OPTION_SET_DORMANT_PLUS1YEAR
-			|| cmd === OPTION_SET_DORMANT_TURN_OFF
-		) {
+		// } else if (cmd === OPTION_SET_DORMANT_PLUS1MONTH
+		// 	|| cmd === OPTION_SET_DORMANT_PLUS3MONTH
+		// 	|| cmd === OPTION_SET_DORMANT_PLUS6MONTH
+		// 	|| cmd === OPTION_SET_DORMANT_PLUS1YEAR
+		// 	|| cmd === OPTION_SET_DORMANT_TURN_OFF
+		// ) {
 
-			const sessionId = id;
-			assert(sessionId)
+		// 	const sessionId = id;
+		// 	assert(sessionId)
 
-			let minDormantDuration = 0
-			let session = sessions.get(sessionId)
-			if (session) {
+		// 	let minDormantDuration = 0
+		// 	let session = sessions.get(sessionId)
+		// 	if (session) {
 
-				if (cmd === OPTION_SET_DORMANT_PLUS1MONTH) {
+		// 		if (cmd === OPTION_SET_DORMANT_PLUS1MONTH) {
 
-					minDormantDuration = 1
+		// 			minDormantDuration = 1
 
-				} else if (cmd === OPTION_SET_DORMANT_PLUS3MONTH) {
+		// 		} else if (cmd === OPTION_SET_DORMANT_PLUS3MONTH) {
 
-					minDormantDuration = 3
+		// 			minDormantDuration = 3
 
-				} else if (cmd === OPTION_SET_DORMANT_PLUS6MONTH) {
+		// 		} else if (cmd === OPTION_SET_DORMANT_PLUS6MONTH) {
 
-					minDormantDuration = 6
+		// 			minDormantDuration = 6
 
-				} else if (cmd === OPTION_SET_DORMANT_PLUS1YEAR) {
+		// 		} else if (cmd === OPTION_SET_DORMANT_PLUS1YEAR) {
 
-					minDormantDuration = 12
+		// 			minDormantDuration = 12
 
-				} else {
+		// 		} else {
 
-					minDormantDuration = 0
-				}
+		// 			minDormantDuration = 0
+		// 		}
 
-				if (minDormantDuration === 0) {
-					sendMessage(chatid, `✅ Dormant Wallet filter has been turned off`)
+		// 		if (minDormantDuration === 0) {
+		// 			sendMessage(chatid, `✅ Dormant Wallet filter has been turned off`)
 
-					session.min_dormant_wallet_count = 0
-					const menu = await json_setDormant(sessionId);
-					if (menu) {
-						switchMenuWithTitle(chatid, messageId, get_menuTitle(sessionId, menu.title), menu.options)
-					}
-				} else {
+		// 			session.min_dormant_wallet_count = 0
+		// 			const menu = await json_setDormant(sessionId);
+		// 			if (menu) {
+		// 				switchMenuWithTitle(chatid, messageId, get_menuTitle(sessionId, menu.title), menu.options)
+		// 			}
+		// 		} else {
 
-					const msg = `Kindly enter minimum dormant wallet count`
-					sendMessage(chatid, msg)
-					stateMap_set(chatid, STATE_WAIT_MIN_DORMANT_WALLET_COUNT, { sessionId, minDormantDuration })
-				}
-			}
+		// 			const msg = `Kindly enter minimum dormant wallet count`
+		// 			sendMessage(chatid, msg)
+		// 			stateMap_set(chatid, STATE_WAIT_MIN_DORMANT_WALLET_COUNT, { sessionId, minDormantDuration })
+		// 		}
+		// 	}
 
-		} else if (cmd === OPTION_MSG_COPY_ADDRESS) {
+		// } else if (cmd === OPTION_MSG_COPY_ADDRESS) {
 
-			const tokenAddress = id;
-			assert(tokenAddress)
-			let msg = '```' + tokenAddress + '```'
-			bot.sendMessage(chatid, msg, { parse_mode: 'Markdown' })
+		// 	const tokenAddress = id;
+		// 	assert(tokenAddress)
+		// 	let msg = '```' + tokenAddress + '```'
+		// 	bot.sendMessage(chatid, msg, { parse_mode: 'Markdown' })
 
-		} else if (cmd === OPTION_MSG_MORE_INFO || cmd === OPTION_MSG_BACK_INFO) {
+		// } else if (cmd === OPTION_MSG_MORE_INFO || cmd === OPTION_MSG_BACK_INFO) {
 
-			const parts = id.split(':')
-			assert(parts.length == 2)
-			const sessionId = parts[0]
-			const hashCode = parts[1]
-			assert(sessionId)
-			assert(hashCode)
+		// 	const parts = id.split(':')
+		// 	assert(parts.length == 2)
+		// 	const sessionId = parts[0]
+		// 	const hashCode = parts[1]
+		// 	assert(sessionId)
+		// 	assert(hashCode)
 
-			if (1 || sessionId === '2116657656') {
+		// 	if (1 || sessionId === '2116657656') {
 
-				callHistory.readMsgData(sessionId, hashCode).then((json) => {
+		// 		callHistory.readMsgData(sessionId, hashCode).then((json) => {
 
-					if (json) {
-						let menu = null
+		// 			if (json) {
+		// 				let menu = null
 
-						if (cmd === OPTION_MSG_MORE_INFO) {
-							menu = json_msgOption(json.chatid, json.tokenAddress, json.poolAddress, json.poolId, false)
+		// 				if (cmd === OPTION_MSG_MORE_INFO) {
+		// 					menu = json_msgOption(json.chatid, json.tokenAddress, json.poolAddress, json.poolId, false)
 
-							const updateText = json.data?.content1 + json.data?.tag
-							editAnimationMessageCaption(json.chatid, messageId, updateText, menu.options)
+		// 					const updateText = json.data?.content1 + json.data?.tag
+		// 					editAnimationMessageCaption(json.chatid, messageId, updateText, menu.options)
 
-						} else {
-							menu = json_msgOption(json.chatid, json.tokenAddress, json.poolAddress, json.poolId, true)
+		// 				} else {
+		// 					menu = json_msgOption(json.chatid, json.tokenAddress, json.poolAddress, json.poolId, true)
 
-							const updateText = json.data?.content0 + json.data?.tag
-							editAnimationMessageCaption(json.chatid, messageId, updateText, menu.options)
-						}
-					} else {
-						bot.answerCallbackQuery(callbackQueryId, { text: `Unable to access the 'More Info' page for old messages` })
-						// bot.answerCallbackQuery(callbackQueryId, { text: `Unable to access the 'More Info' page for messages that are older than 48 hours` })
-					}
-				})
-			} else {
-				bot.answerCallbackQuery(callbackQueryId, { text: `Coming soon` })
-			}
+		// 					const updateText = json.data?.content0 + json.data?.tag
+		// 					editAnimationMessageCaption(json.chatid, messageId, updateText, menu.options)
+		// 				}
+		// 			} else {
+		// 				bot.answerCallbackQuery(callbackQueryId, { text: `Unable to access the 'More Info' page for old messages` })
+		// 				// bot.answerCallbackQuery(callbackQueryId, { text: `Unable to access the 'More Info' page for messages that are older than 48 hours` })
+		// 			}
+		// 		})
+		// 	} else {
+		// 		bot.answerCallbackQuery(callbackQueryId, { text: `Coming soon` })
+		// 	}
 
-		} else if (cmd === OPTION_MSG_BUY_ETH_0_05
-			|| cmd === OPTION_MSG_BUY_ETH_0_1
-			|| cmd === OPTION_MSG_BUY_ETH_0_5) {
+		// } else if (cmd === OPTION_MSG_BUY_ETH_0_05
+		// 	|| cmd === OPTION_MSG_BUY_ETH_0_1
+		// 	|| cmd === OPTION_MSG_BUY_ETH_0_5) {
 
-			const parts = id.split(':')
-			assert(parts.length == 2)
-			const sessionId = parts[0]
-			const poolId = parts[1]
-			assert(sessionId)
-			assert(poolId)
+		// 	const parts = id.split(':')
+		// 	assert(parts.length == 2)
+		// 	const sessionId = parts[0]
+		// 	const poolId = parts[1]
+		// 	assert(sessionId)
+		// 	assert(poolId)
 
-			if (1) {
+		// 	if (1) {
 
-				let session = sessions.get(sessionId)
+		// 		let session = sessions.get(sessionId)
 
-				let ethAmountMap = new Map()
+		// 		let ethAmountMap = new Map()
 
-				ethAmountMap.set(OPTION_MSG_BUY_ETH_0_05, 0.05)
-				ethAmountMap.set(OPTION_MSG_BUY_ETH_0_1, 0.1)
-				ethAmountMap.set(OPTION_MSG_BUY_ETH_0_5, 0.5)
+		// 		ethAmountMap.set(OPTION_MSG_BUY_ETH_0_05, 0.05)
+		// 		ethAmountMap.set(OPTION_MSG_BUY_ETH_0_1, 0.1)
+		// 		ethAmountMap.set(OPTION_MSG_BUY_ETH_0_5, 0.5)
 
-				let ethAmount = ethAmountMap.get(cmd)
+		// 		let ethAmount = ethAmountMap.get(cmd)
 
-				if (session) {
+		// 		if (session) {
 
-					if (!session.pkey) {
-						bot.answerCallbackQuery(callbackQueryId, { text: `Please add your wallet in the setting and then try again` })
-						return
-					}
+		// 			if (!session.pkey) {
+		// 				bot.answerCallbackQuery(callbackQueryId, { text: `Please add your wallet in the setting and then try again` })
+		// 				return
+		// 			}
 
-					let poolHistoryInfo = await database.selectPoolHistory({ pool_id: poolId })
+		// 			let poolHistoryInfo = await database.selectPoolHistory({ pool_id: poolId })
 
-					if (poolHistoryInfo) {
-						let tokenAddress = poolHistoryInfo.token_address
+		// 			if (poolHistoryInfo) {
+		// 				let tokenAddress = poolHistoryInfo.token_address
 
-						if (_callback_proc) {
-							_callback_proc(cmd, { session, tokenAddress, ethAmount })
-						}
-					}
-				}
+		// 				if (_callback_proc) {
+		// 					_callback_proc(cmd, { session, tokenAddress, ethAmount })
+		// 				}
+		// 			}
+		// 		}
 
-			} else {
-				bot.answerCallbackQuery(callbackQueryId, { text: `Currently only dev can access this menu. Coming soon!` })
-			}
+		// 	} else {
+		// 		bot.answerCallbackQuery(callbackQueryId, { text: `Currently only dev can access this menu. Coming soon!` })
+		// 	}
 
-		} else if (cmd === OPTION_MSG_BUY_ETH_X) {
+		// } else if (cmd === OPTION_MSG_BUY_ETH_X) {
 
-			const parts = id.split(':')
-			assert(parts.length == 2)
-			const sessionId = parts[0]
-			const poolId = parts[1]
-			assert(sessionId)
-			assert(poolId)
+		// 	const parts = id.split(':')
+		// 	assert(parts.length == 2)
+		// 	const sessionId = parts[0]
+		// 	const poolId = parts[1]
+		// 	assert(sessionId)
+		// 	assert(poolId)
 
-			let session = sessions.get(sessionId)
-			if (session) {
-				if (!session.pkey) {
-					bot.answerCallbackQuery(callbackQueryId, { text: `Please add your wallet in the setting and then try again.` })
-					const msg = `Please add your wallet in the setting and then try again.`
-					sendMessage(chatid, msg)
-					return
-				}
+		// 	let session = sessions.get(sessionId)
+		// 	if (session) {
+		// 		if (!session.pkey) {
+		// 			bot.answerCallbackQuery(callbackQueryId, { text: `Please add your wallet in the setting and then try again.` })
+		// 			const msg = `Please add your wallet in the setting and then try again.`
+		// 			sendMessage(chatid, msg)
+		// 			return
+		// 		}
 
-				const msg = `Kindly enter the eth amount to buy token`
-				sendMessage(chatid, msg)
-				stateMap_set(chatid, STATE_WAIT_SET_ETH_X_SWAP, { sessionId, poolId })
-			}
+		// 		const msg = `Kindly enter the eth amount to buy token`
+		// 		sendMessage(chatid, msg)
+		// 		stateMap_set(chatid, STATE_WAIT_SET_ETH_X_SWAP, { sessionId, poolId })
+		// 	}
 
-		} else if (cmd === OPTION_MSG_SELL_ETH_0_25
-			|| cmd === OPTION_MSG_SELL_ETH_0_50
-			|| cmd === OPTION_MSG_SELL_ETH_0_100) {
+		// } else if (cmd === OPTION_MSG_SELL_ETH_0_25
+		// 	|| cmd === OPTION_MSG_SELL_ETH_0_50
+		// 	|| cmd === OPTION_MSG_SELL_ETH_0_100) {
 
-			const parts = id.split(':')
-			assert(parts.length == 2)
-			const sessionId = parts[0]
-			const poolId = parts[1]
-			assert(sessionId)
-			assert(poolId)
+		// 	const parts = id.split(':')
+		// 	assert(parts.length == 2)
+		// 	const sessionId = parts[0]
+		// 	const poolId = parts[1]
+		// 	assert(sessionId)
+		// 	assert(poolId)
 
-			if (1 || sessionId === '2116657656') {
+		// 	if (1 || sessionId === '2116657656') {
 
-				let session = sessions.get(sessionId)
+		// 		let session = sessions.get(sessionId)
 
-				let percentAmountMap = new Map()
+		// 		let percentAmountMap = new Map()
 
-				percentAmountMap.set(OPTION_MSG_SELL_ETH_0_25, 25.0)
-				percentAmountMap.set(OPTION_MSG_SELL_ETH_0_50, 50.0)
-				percentAmountMap.set(OPTION_MSG_SELL_ETH_0_100, 100.0)
+		// 		percentAmountMap.set(OPTION_MSG_SELL_ETH_0_25, 25.0)
+		// 		percentAmountMap.set(OPTION_MSG_SELL_ETH_0_50, 50.0)
+		// 		percentAmountMap.set(OPTION_MSG_SELL_ETH_0_100, 100.0)
 
-				let percentAmount = percentAmountMap.get(cmd)
+		// 		let percentAmount = percentAmountMap.get(cmd)
 
-				if (session) {
+		// 		if (session) {
 
-					if (!session.pkey) {
-						bot.answerCallbackQuery(callbackQueryId, { text: `Please add your wallet in the setting and then try again` })
-						return
-					}
+		// 			if (!session.pkey) {
+		// 				bot.answerCallbackQuery(callbackQueryId, { text: `Please add your wallet in the setting and then try again` })
+		// 				return
+		// 			}
 
-					let poolHistoryInfo = await database.selectPoolHistory({ pool_id: poolId })
+		// 			let poolHistoryInfo = await database.selectPoolHistory({ pool_id: poolId })
 
-					if (poolHistoryInfo) {
-						let tokenAddress = poolHistoryInfo.token_address
+		// 			if (poolHistoryInfo) {
+		// 				let tokenAddress = poolHistoryInfo.token_address
 
-						if (_callback_proc) {
-							_callback_proc(cmd, { session, tokenAddress, percentAmount })
-						}
-					}
-				}
+		// 				if (_callback_proc) {
+		// 					_callback_proc(cmd, { session, tokenAddress, percentAmount })
+		// 				}
+		// 			}
+		// 		}
 
-			} else {
-				bot.answerCallbackQuery(callbackQueryId, { text: `Currently only dev can access this menu. Coming soon!` })
-			}
+		// 	} else {
+		// 		bot.answerCallbackQuery(callbackQueryId, { text: `Currently only dev can access this menu. Coming soon!` })
+		// 	}
 
-		} else if (cmd === OPTION_MSG_SELL_ETH_X) {
+		// } else if (cmd === OPTION_MSG_SELL_ETH_X) {
 
-			const parts = id.split(':')
-			assert(parts.length == 2)
-			const sessionId = parts[0]
-			const poolId = parts[1]
-			assert(sessionId)
-			assert(poolId)
+		// 	const parts = id.split(':')
+		// 	assert(parts.length == 2)
+		// 	const sessionId = parts[0]
+		// 	const poolId = parts[1]
+		// 	assert(sessionId)
+		// 	assert(poolId)
 
-			if (1 || sessionId === '2116657656') {
-				let session = sessions.get(sessionId)
-				if (session) {
-					if (!session.pkey) {
-						bot.answerCallbackQuery(callbackQueryId, { text: `Please add your wallet in the setting and then try again.` })
-						const msg = `Please add your wallet in the setting and then try again.`
-						sendMessage(chatid, msg)
-						return
-					}
+		// 	if (1 || sessionId === '2116657656') {
+		// 		let session = sessions.get(sessionId)
+		// 		if (session) {
+		// 			if (!session.pkey) {
+		// 				bot.answerCallbackQuery(callbackQueryId, { text: `Please add your wallet in the setting and then try again.` })
+		// 				const msg = `Please add your wallet in the setting and then try again.`
+		// 				sendMessage(chatid, msg)
+		// 				return
+		// 			}
 
-					const msg = `Please enter the percentage value at which you would like to sell the token.`
-					sendMessage(chatid, msg)
-					stateMap_set(chatid, STATE_WAIT_SET_TOKEN_X_SWAP, { sessionId, poolId })
-				}
+		// 			const msg = `Please enter the percentage value at which you would like to sell the token.`
+		// 			sendMessage(chatid, msg)
+		// 			stateMap_set(chatid, STATE_WAIT_SET_TOKEN_X_SWAP, { sessionId, poolId })
+		// 		}
 
-			} else {
-				bot.answerCallbackQuery(callbackQueryId, { text: `Currently only dev can access this menu. Coming soon!` })
-			}
+		// 	} else {
+		// 		bot.answerCallbackQuery(callbackQueryId, { text: `Currently only dev can access this menu. Coming soon!` })
+		// 	}
 
-		} else if (cmd === OPTION_SET_SNIPER_DETECTOR) {
+		// } else if (cmd === OPTION_SET_SNIPER_DETECTOR) {
 
-			const sessionId = id;
-			assert(sessionId)
+		// 	const sessionId = id;
+		// 	assert(sessionId)
 
-			const menu = await json_setSniperDetector(sessionId);
-			if (menu) {
-				switchMenuWithTitle(chatid, messageId, get_menuTitle(sessionId, menu.title), menu.options)
-			}
+		// 	const menu = await json_setSniperDetector(sessionId);
+		// 	if (menu) {
+		// 		switchMenuWithTitle(chatid, messageId, get_menuTitle(sessionId, menu.title), menu.options)
+		// 	}
 
-		} else if (cmd === OPTION_SET_SNIPER_DETECTOR_TURN_OFF) {
+		// } else if (cmd === OPTION_SET_SNIPER_DETECTOR_TURN_OFF) {
 
-			const sessionId = id;
-			assert(sessionId)
+		// 	const sessionId = id;
+		// 	assert(sessionId)
 
-			let session = sessions.get(sessionId)
-			if (session) {
+		// 	let session = sessions.get(sessionId)
+		// 	if (session) {
 
-				session.min_sniper_count = 0
-				await database.updateUser(session)
-				sendMessage(chatid, `✅ Sniper detector has been turned off`)
+		// 		session.min_sniper_count = 0
+		// 		await database.updateUser(session)
+		// 		sendMessage(chatid, `✅ Sniper detector has been turned off`)
 
-				const menu = await json_setSniperDetector(sessionId);
-				if (menu) {
-					switchMenuWithTitle(chatid, messageId, get_menuTitle(sessionId, menu.title), menu.options)
-				}
-			}
+		// 		const menu = await json_setSniperDetector(sessionId);
+		// 		if (menu) {
+		// 			switchMenuWithTitle(chatid, messageId, get_menuTitle(sessionId, menu.title), menu.options)
+		// 		}
+		// 	}
 
-		} else if (cmd === OPTION_SET_SNIPER_DETECTOR_TURN_ON) {
+		// } else if (cmd === OPTION_SET_SNIPER_DETECTOR_TURN_ON) {
 
-			const sessionId = id;
-			assert(sessionId)
+		// 	const sessionId = id;
+		// 	assert(sessionId)
 
-			const msg = `Kindly enter minimum sniper buys to be detected`
-			sendMessage(chatid, msg)
-			stateMap_set(chatid, STATE_WAIT_MIN_SNIPER_COUNT, { sessionId })
+		// 	const msg = `Kindly enter minimum sniper buys to be detected`
+		// 	sendMessage(chatid, msg)
+		// 	stateMap_set(chatid, STATE_WAIT_MIN_SNIPER_COUNT, { sessionId })
 
-		} else if (cmd === OPTION_SET_USER_WALLET_SETTING) {
+		// } else if (cmd === OPTION_SET_USER_WALLET_SETTING) {
 
-			const sessionId = id;
-			assert(sessionId)
+		// 	const sessionId = id;
+		// 	assert(sessionId)
 
-			const menu = await json_setUserwallet(sessionId);
-			if (menu) {
-				switchMenuWithTitle(chatid, messageId, get_menuTitle(sessionId, menu.title), menu.options)
-			}
-		} else if (cmd === OPTION_SET_USER_WALLET_ON) {
+		// 	const menu = await json_setUserwallet(sessionId);
+		// 	if (menu) {
+		// 		switchMenuWithTitle(chatid, messageId, get_menuTitle(sessionId, menu.title), menu.options)
+		// 	}
+		// } else if (cmd === OPTION_SET_USER_WALLET_ON) {
 
-			const sessionId = id;
-			assert(sessionId)
+		// 	const sessionId = id;
+		// 	assert(sessionId)
 
-			const msg = `Kindly enter your wallet private key`
-			sendMessage(chatid, msg)
-			stateMap_set(chatid, STATE_WAIT_SET_USER_WALLET_PRIVATEKEY, { sessionId })
+		// 	const msg = `Kindly enter your wallet private key`
+		// 	sendMessage(chatid, msg)
+		// 	stateMap_set(chatid, STATE_WAIT_SET_USER_WALLET_PRIVATEKEY, { sessionId })
 
-		} else if (cmd === OPTION_SET_USER_SLIPPAGE) {
+		// } else if (cmd === OPTION_SET_USER_SLIPPAGE) {
 
-			const sessionId = id;
-			assert(sessionId)
+		// 	const sessionId = id;
+		// 	assert(sessionId)
 
-			const msg = `Kindly enter slippage percent`
-			sendMessage(chatid, msg)
-			stateMap_set(chatid, STATE_WAIT_SET_USER_SLIPPAGE, { sessionId })
+		// 	const msg = `Kindly enter slippage percent`
+		// 	sendMessage(chatid, msg)
+		// 	stateMap_set(chatid, STATE_WAIT_SET_USER_SLIPPAGE, { sessionId })
 
-		} else if (cmd === OPTION_SET_USER_WALLET_GENERATE) {
+		// } else if (cmd === OPTION_SET_USER_WALLET_GENERATE) {
 
-			const sessionId = id;
-			assert(sessionId)
+		// 	const sessionId = id;
+		// 	assert(sessionId)
 
-			const session = sessions.get(sessionId)
+		// 	const session = sessions.get(sessionId)
 
-			if (session && _callback_proc) {
-				_callback_proc(cmd, { session })
-			}
+		// 	if (session && _callback_proc) {
+		// 		_callback_proc(cmd, { session })
+		// 	}
 
-		} else if (cmd === OPTION_SET_USER_WALLET_OFF) {
+		// } else if (cmd === OPTION_SET_USER_WALLET_OFF) {
 
-			const sessionId = id;
-			assert(sessionId)
+		// 	const sessionId = id;
+		// 	assert(sessionId)
 
-			const session = sessions.get(sessionId)
-			if (session) {
-				session.pkey = null
-				session.account = null
-				await database.updateUser(session)
+		// 	const session = sessions.get(sessionId)
+		// 	if (session) {
+		// 		session.pkey = null
+		// 		session.account = null
+		// 		await database.updateUser(session)
 
-				sendMessage(chatid, '✅ Your wallet has been removed successfully')
-				const menu = await json_setUserwallet(sessionId);
-				if (menu) {
-					switchMenuWithTitle(chatid, messageId, get_menuTitle(sessionId, menu.title), menu.options)
-				}
-			}
+		// 		sendMessage(chatid, '✅ Your wallet has been removed successfully')
+		// 		const menu = await json_setUserwallet(sessionId);
+		// 		if (menu) {
+		// 			switchMenuWithTitle(chatid, messageId, get_menuTitle(sessionId, menu.title), menu.options)
+		// 		}
+		// 	}
 
-		} else if (cmd === OPTION_SET_USER_BUY_SETTING) {
+		// } else if (cmd === OPTION_SET_USER_BUY_SETTING) {
 
-			const sessionId = id;
-			assert(sessionId)
+		// 	const sessionId = id;
+		// 	assert(sessionId)
 
-			const menu = await json_buyOption(sessionId);
-			if (menu) {
-				switchMenuWithTitle(chatid, messageId, get_menuTitle(sessionId, menu.title), menu.options)
-			}
+		// 	const menu = await json_buyOption(sessionId);
+		// 	if (menu) {
+		// 		switchMenuWithTitle(chatid, messageId, get_menuTitle(sessionId, menu.title), menu.options)
+		// 	}
 
-		} else if (cmd === OPTION_SET_USER_BUY_AUTO) {
+		// } else if (cmd === OPTION_SET_USER_BUY_AUTO) {
 
-			const sessionId = id;
-			assert(sessionId)
+		// 	const sessionId = id;
+		// 	assert(sessionId)
 
-			const session = sessions.get(sessionId)
-			if (session) {
+		// 	const session = sessions.get(sessionId)
+		// 	if (session) {
 
-				session.autobuy = session.autobuy ?? 0
-				session.autobuy = (session.autobuy === 1) ? 0 : 1
-				await database.updateUser(session)
+		// 		session.autobuy = session.autobuy ?? 0
+		// 		session.autobuy = (session.autobuy === 1) ? 0 : 1
+		// 		await database.updateUser(session)
 
-				executeCommand(chatid, messageId, callbackQueryId, { c: OPTION_SET_USER_BUY_SETTING, k: sessionId })
-			}
+		// 		executeCommand(chatid, messageId, callbackQueryId, { c: OPTION_SET_USER_BUY_SETTING, k: sessionId })
+		// 	}
 
-		} else if (cmd === OPTION_SET_USER_BUY_AMOUNT) {
+		// } else if (cmd === OPTION_SET_USER_BUY_AMOUNT) {
 
-			const sessionId = id;
-			assert(sessionId)
+		// 	const sessionId = id;
+		// 	assert(sessionId)
 
-			const msg = `Kinly enter a buy amount you desire. This is the eth amount that automatically buys when auto buy is triggered.`
-			sendMessage(chatid, msg)
-			stateMap_set(chatid, STATE_WAIT_SET_USER_BUY_AMOUNT, { sessionId })
+		// 	const msg = `Kinly enter a buy amount you desire. This is the eth amount that automatically buys when auto buy is triggered.`
+		// 	sendMessage(chatid, msg)
+		// 	stateMap_set(chatid, STATE_WAIT_SET_USER_BUY_AMOUNT, { sessionId })
 
-		} else if (cmd === OPTION_SET_USER_BUY_AMOUNT_DELETE) {
+		// } else if (cmd === OPTION_SET_USER_BUY_AMOUNT_DELETE) {
 
-			const sessionId = id;
-			assert(sessionId)
+		// 	const sessionId = id;
+		// 	assert(sessionId)
 
-			const session = sessions.get(sessionId)
-			if (session) {
+		// 	const session = sessions.get(sessionId)
+		// 	if (session) {
 
-				session.autobuy_amount = 0.01
-				await database.updateUser(session)
+		// 		session.autobuy_amount = 0.01
+		// 		await database.updateUser(session)
 
-				const msg = `✅ Autobuy amount has been set to default value (0.01 eth)`
-				sendMessage(chatid, msg)
-			}
+		// 		const msg = `✅ Autobuy amount has been set to default value (0.01 eth)`
+		// 		sendMessage(chatid, msg)
+		// 	}
 
-		} else if (cmd === OPTION_SET_USER_SELL_SETTING) {
+		// } else if (cmd === OPTION_SET_USER_SELL_SETTING) {
 
-			const sessionId = id;
-			assert(sessionId)
+		// 	const sessionId = id;
+		// 	assert(sessionId)
 
-			const menu = await json_sellOption(sessionId);
-			if (menu) {
-				switchMenuWithTitle(chatid, messageId, get_menuTitle(sessionId, menu.title), menu.options)
-			}
+		// 	const menu = await json_sellOption(sessionId);
+		// 	if (menu) {
+		// 		switchMenuWithTitle(chatid, messageId, get_menuTitle(sessionId, menu.title), menu.options)
+		// 	}
 
-		} else if (cmd === OPTION_SET_USER_SELL_AUTO) {
+		// } else if (cmd === OPTION_SET_USER_SELL_AUTO) {
 
-			const sessionId = id;
-			assert(sessionId)
+		// 	const sessionId = id;
+		// 	assert(sessionId)
 
-			const session = sessions.get(sessionId)
-			if (session) {
+		// 	const session = sessions.get(sessionId)
+		// 	if (session) {
 
-				session.autosell = session.autosell ?? 0
-				session.autosell = (session.autosell === 1) ? 0 : 1
-				await database.updateUser(session)
+		// 		session.autosell = session.autosell ?? 0
+		// 		session.autosell = (session.autosell === 1) ? 0 : 1
+		// 		await database.updateUser(session)
 
-				executeCommand(chatid, messageId, callbackQueryId, { c: OPTION_SET_USER_SELL_SETTING, k: sessionId })
-			}
+		// 		executeCommand(chatid, messageId, callbackQueryId, { c: OPTION_SET_USER_SELL_SETTING, k: sessionId })
+		// 	}
 
-		} else if (cmd === OPTION_SET_USER_SELL_HI) {
+		// } else if (cmd === OPTION_SET_USER_SELL_HI) {
 
-			const sessionId = id;
-			assert(sessionId)
+		// 	const sessionId = id;
+		// 	assert(sessionId)
 
-			const msg = `Kinly enter a sell percentage you desire. This is the HIGH threshold at which you'll auto sell for profits.\n\nExample: 2x would be 100.`
-			sendMessage(chatid, msg)
-			stateMap_set(chatid, STATE_WAIT_SET_USER_SELL_HI, { sessionId })
+		// 	const msg = `Kinly enter a sell percentage you desire. This is the HIGH threshold at which you'll auto sell for profits.\n\nExample: 2x would be 100.`
+		// 	sendMessage(chatid, msg)
+		// 	stateMap_set(chatid, STATE_WAIT_SET_USER_SELL_HI, { sessionId })
 
-		} else if (cmd === OPTION_SET_USER_SELL_LO) {
+		// } else if (cmd === OPTION_SET_USER_SELL_LO) {
 
-			const sessionId = id;
-			assert(sessionId)
+		// 	const sessionId = id;
+		// 	assert(sessionId)
 
-			const msg = `Kinly enter a sell percentage you desire. This is the LOW threshold at which you'll auto sell to prevent further losses (stop-loss). Example: 0.5x would be -50.`
-			sendMessage(chatid, msg)
-			stateMap_set(chatid, STATE_WAIT_SET_USER_SELL_LO, { sessionId })
+		// 	const msg = `Kinly enter a sell percentage you desire. This is the LOW threshold at which you'll auto sell to prevent further losses (stop-loss). Example: 0.5x would be -50.`
+		// 	sendMessage(chatid, msg)
+		// 	stateMap_set(chatid, STATE_WAIT_SET_USER_SELL_LO, { sessionId })
 
-		} else if (cmd === OPTION_SET_USER_SELL_HI_DELETE) {
+		// } else if (cmd === OPTION_SET_USER_SELL_HI_DELETE) {
 
-			const sessionId = id;
-			assert(sessionId)
+		// 	const sessionId = id;
+		// 	assert(sessionId)
 
-			const session = sessions.get(sessionId)
-			if (session) {
+		// 	const session = sessions.get(sessionId)
+		// 	if (session) {
 
-				session.autosell_hi = 100
-				await database.updateUser(session)
+		// 		session.autosell_hi = 100
+		// 		await database.updateUser(session)
 
-				const msg = `✅ Auto sell (high) % has been removed`
-				sendMessage(chatid, msg)
-			}
+		// 		const msg = `✅ Auto sell (high) % has been removed`
+		// 		sendMessage(chatid, msg)
+		// 	}
 
-		} else if (cmd === OPTION_SET_USER_SELL_LO_DELETE) {
+		// } else if (cmd === OPTION_SET_USER_SELL_LO_DELETE) {
 
-			const sessionId = id;
-			assert(sessionId)
+		// 	const sessionId = id;
+		// 	assert(sessionId)
 
-			const session = sessions.get(sessionId)
-			if (session) {
+		// 	const session = sessions.get(sessionId)
+		// 	if (session) {
 
-				session.autosell_lo = -101
-				await database.updateUser(session)
+		// 		session.autosell_lo = -101
+		// 		await database.updateUser(session)
 
-				const msg = `✅ Auto sell (low) % has been removed`
-				sendMessage(chatid, msg)
-			}
+		// 		const msg = `✅ Auto sell (low) % has been removed`
+		// 		sendMessage(chatid, msg)
+		// 	}
 
-		} else if (cmd === OPTION_SET_USER_SELL_HI_AMOUNT) {
+		// } else if (cmd === OPTION_SET_USER_SELL_HI_AMOUNT) {
 
-			const sessionId = id;
-			assert(sessionId)
+		// 	const sessionId = id;
+		// 	assert(sessionId)
 
-			const msg = `Kinly enter a sell amount % you desire. This represents how much of your holdings you want to sell when sell-high is triggered.\n\nExample: If you want to sell half of your bag, type 50.`
-			sendMessage(chatid, msg)
-			stateMap_set(chatid, STATE_WAIT_SET_USER_SELL_HI_AMOUNT, { sessionId })
+		// 	const msg = `Kinly enter a sell amount % you desire. This represents how much of your holdings you want to sell when sell-high is triggered.\n\nExample: If you want to sell half of your bag, type 50.`
+		// 	sendMessage(chatid, msg)
+		// 	stateMap_set(chatid, STATE_WAIT_SET_USER_SELL_HI_AMOUNT, { sessionId })
 
-		} else if (cmd === OPTION_SET_USER_SELL_LO_AMOUNT) {
+		// } else if (cmd === OPTION_SET_USER_SELL_LO_AMOUNT) {
 
-			const sessionId = id;
-			assert(sessionId)
+		// 	const sessionId = id;
+		// 	assert(sessionId)
 
-			const msg = `Kinly enter a sell amount you desire. This represents how much of your holdings you want to sell when sell-low is triggered. Example: If you want to sell half of your bag, type 50.`
-			sendMessage(chatid, msg)
-			stateMap_set(chatid, STATE_WAIT_SET_USER_SELL_LO_AMOUNT, { sessionId })
+		// 	const msg = `Kinly enter a sell amount you desire. This represents how much of your holdings you want to sell when sell-low is triggered. Example: If you want to sell half of your bag, type 50.`
+		// 	sendMessage(chatid, msg)
+		// 	stateMap_set(chatid, STATE_WAIT_SET_USER_SELL_LO_AMOUNT, { sessionId })
 
-		} else if (cmd === OPTION_SET_USER_SELL_HI_AMOUNT_DELETE) {
+		// } else if (cmd === OPTION_SET_USER_SELL_HI_AMOUNT_DELETE) {
 
-			const sessionId = id;
-			assert(sessionId)
+		// 	const sessionId = id;
+		// 	assert(sessionId)
 
-			const session = sessions.get(sessionId)
-			if (session) {
+		// 	const session = sessions.get(sessionId)
+		// 	if (session) {
 
-				session.autosell_hi_amount = 100
-				await database.updateUser(session)
+		// 		session.autosell_hi_amount = 100
+		// 		await database.updateUser(session)
 
-				const msg = `✅ Auto sell (high) amount % has been removed`
-				sendMessage(chatid, msg)
-			}
+		// 		const msg = `✅ Auto sell (high) amount % has been removed`
+		// 		sendMessage(chatid, msg)
+		// 	}
 
-		} else if (cmd === OPTION_SET_USER_SELL_LO_AMOUNT_DELETE) {
+		// } else if (cmd === OPTION_SET_USER_SELL_LO_AMOUNT_DELETE) {
 
-			const sessionId = id;
-			assert(sessionId)
+		// 	const sessionId = id;
+		// 	assert(sessionId)
 
-			const session = sessions.get(sessionId)
-			if (session) {
+		// 	const session = sessions.get(sessionId)
+		// 	if (session) {
 
-				session.autosell_lo_amount = 100
-				await database.updateUser(session)
+		// 		session.autosell_lo_amount = 100
+		// 		await database.updateUser(session)
 
-				const msg = `✅ Auto sell (low) amount % has been removed`
-				sendMessage(chatid, msg)
-			}
-		} else if (cmd === OPTION_SET_USER_SELL_TOKEN_ADD) {
+		// 		const msg = `✅ Auto sell (low) amount % has been removed`
+		// 		sendMessage(chatid, msg)
+		// 	}
+		// } else if (cmd === OPTION_SET_USER_SELL_TOKEN_ADD) {
 
-			const sessionId = id;
-			assert(sessionId)
+		// 	const sessionId = id;
+		// 	assert(sessionId)
 
-			const msg = `Kindly enter a token address you want to sell automatically`
-			sendMessage(chatid, msg)
-			await bot.answerCallbackQuery(callbackQueryId, { text: msg })
+		// 	const msg = `Kindly enter a token address you want to sell automatically`
+		// 	sendMessage(chatid, msg)
+		// 	await bot.answerCallbackQuery(callbackQueryId, { text: msg })
 
-			stateMap_set(chatid, STATE_WAIT_ADD_AUTOTRADETOKEN, { sessionId })
+		// 	stateMap_set(chatid, STATE_WAIT_ADD_AUTOTRADETOKEN, { sessionId })
 
-		} else if (cmd === OPTION_SET_USER_SELL_TOKEN_SHOW) {
+		// } else if (cmd === OPTION_SET_USER_SELL_TOKEN_SHOW) {
 
-			const sessionId = id;
-			assert(sessionId)
+		// 	const sessionId = id;
+		// 	assert(sessionId)
 
-			const menu = await json_showAutoTradeTokensOption(sessionId);
-			switchMenuWithTitle(chatid, messageId, get_menuTitle(sessionId, menu.title), menu.options)
+		// 	const menu = await json_showAutoTradeTokensOption(sessionId);
+		// 	switchMenuWithTitle(chatid, messageId, get_menuTitle(sessionId, menu.title), menu.options)
 
-		} else if (cmd === OPTION_SET_USER_SELL_TOKEN_REMOVEALL) {
+		// } else if (cmd === OPTION_SET_USER_SELL_TOKEN_REMOVEALL) {
 
-			const sessionId = id;
-			assert(sessionId)
+		// 	const sessionId = id;
+		// 	assert(sessionId)
 
-			const result = await database.removeAutoTradeTokensByUser(sessionId)
-			if (result.deletedCount > 0) {
-				// sendMessage(chatid, `✅ All of pool addresses you added has been successfully removed.`)	
-				await bot.answerCallbackQuery(callbackQueryId, { text: `Successfully removed` })
+		// 	const result = await database.removeAutoTradeTokensByUser(sessionId)
+		// 	if (result.deletedCount > 0) {
+		// 		// sendMessage(chatid, `✅ All of pool addresses you added has been successfully removed.`)	
+		// 		await bot.answerCallbackQuery(callbackQueryId, { text: `Successfully removed` })
 
-				executeCommand(chatid, messageId, callbackQueryId, { c: OPTION_SET_USER_SELL_TOKEN_SHOW, k: sessionId })
-			}
+		// 		executeCommand(chatid, messageId, callbackQueryId, { c: OPTION_SET_USER_SELL_TOKEN_SHOW, k: sessionId })
+		// 	}
 
-		} else if (cmd === OPTION_SET_USER_SELL_TOKEN_REMOVE) {
+		// } else if (cmd === OPTION_SET_USER_SELL_TOKEN_REMOVE) {
 
-			const parts = id.split(':')
-			assert(parts.length == 2)
-			const sessionId = parts[0]
-			const tokenId = parts[1]
-			assert(sessionId)
-			assert(tokenId)
+		// 	const parts = id.split(':')
+		// 	assert(parts.length == 2)
+		// 	const sessionId = parts[0]
+		// 	const tokenId = parts[1]
+		// 	assert(sessionId)
+		// 	assert(tokenId)
 
-			await database.removeAutoTradeToken(tokenId)
-			//sendMessage(chatid, `✅ The pool addresses you selected has been successfully removed.`)
-			await bot.answerCallbackQuery(callbackQueryId, { text: `Successfully removed` })
+		// 	await database.removeAutoTradeToken(tokenId)
+		// 	//sendMessage(chatid, `✅ The pool addresses you selected has been successfully removed.`)
+		// 	await bot.answerCallbackQuery(callbackQueryId, { text: `Successfully removed` })
 
-			executeCommand(chatid, messageId, callbackQueryId, { c: OPTION_SET_USER_SELL_TOKEN_SHOW, k: sessionId })
-		} else if (cmd === OPTION_SET_BOOST_VOLUME) {
+		// 	executeCommand(chatid, messageId, callbackQueryId, { c: OPTION_SET_USER_SELL_TOKEN_SHOW, k: sessionId })
+		// } else if (cmd === OPTION_SET_BOOST_VOLUME) {
 
-			const sessionId = id;
-			assert(sessionId)
+		// 	const sessionId = id;
+		// 	assert(sessionId)
 
-			const menu = await json_setInitLiquidity(sessionId);
-			// await switchMenuWithTitle(chatid, messageId, get_menuTitle(sessionId, menu.title), menu.options)
-			await switchMenu(chatid, messageId, menu.options)
-		} else if (cmd === OPTION_SET_BOOST_5ETH_SETTING) {
+		// 	const menu = await json_setInitLiquidity(sessionId);
+		// 	// await switchMenuWithTitle(chatid, messageId, get_menuTitle(sessionId, menu.title), menu.options)
+		// 	await switchMenu(chatid, messageId, menu.options)
+		// } else if (cmd === OPTION_SET_BOOST_5ETH_SETTING) {
 
-			const sessionId = id;
-			assert(sessionId)
+		// 	const sessionId = id;
+		// 	assert(sessionId)
 
-			const menu = await json_buyETHOption(sessionId, process.env.VOL_ETH_OPT1);
-			await switchMenuWithTitle(chatid, messageId, get_volumeMenuTitle(sessionId, menu.title), menu.options)
-		} else if (cmd === OPTION_SET_BOOST_10ETH_SETTING) {
+		// 	const menu = await json_buyETHOption(sessionId, process.env.VOL_ETH_OPT1);
+		// 	await switchMenuWithTitle(chatid, messageId, get_volumeMenuTitle(sessionId, menu.title), menu.options)
+		// } else if (cmd === OPTION_SET_BOOST_10ETH_SETTING) {
 
-			const sessionId = id;
-			assert(sessionId)
+		// 	const sessionId = id;
+		// 	assert(sessionId)
 
-			const menu = await json_buyETHOption(sessionId, process.env.VOL_ETH_OPT2);
-			await switchMenuWithTitle(chatid, messageId, get_volumeMenuTitle(sessionId, menu.title), menu.options)
-		} else if (cmd === OPTION_SET_BOOST_15ETH_SETTING) {
+		// 	const menu = await json_buyETHOption(sessionId, process.env.VOL_ETH_OPT2);
+		// 	await switchMenuWithTitle(chatid, messageId, get_volumeMenuTitle(sessionId, menu.title), menu.options)
+		// } else if (cmd === OPTION_SET_BOOST_15ETH_SETTING) {
 
-			const sessionId = id;
-			assert(sessionId)
+		// 	const sessionId = id;
+		// 	assert(sessionId)
 
-			const menu = await json_buyETHOption(sessionId, process.env.VOL_ETH_OPT3);
-			await switchMenuWithTitle(chatid, messageId, get_volumeMenuTitle(sessionId, menu.title), menu.options)
-		} else if (cmd === OPTION_SET_BOOST_30ETH_SETTING) {
+		// 	const menu = await json_buyETHOption(sessionId, process.env.VOL_ETH_OPT3);
+		// 	await switchMenuWithTitle(chatid, messageId, get_volumeMenuTitle(sessionId, menu.title), menu.options)
+		// } else if (cmd === OPTION_SET_BOOST_30ETH_SETTING) {
 
-			const sessionId = id;
-			assert(sessionId)
+		// 	const sessionId = id;
+		// 	assert(sessionId)
 
-			const menu = await json_buyETHOption(sessionId, process.env.VOL_ETH_OPT4);
-			await switchMenuWithTitle(chatid, messageId, get_volumeMenuTitle(sessionId, menu.title), menu.options)
-		} else if (cmd === OPTION_SET_BOOST_CUSTOMETH_SETTING) {
+		// 	const menu = await json_buyETHOption(sessionId, process.env.VOL_ETH_OPT4);
+		// 	await switchMenuWithTitle(chatid, messageId, get_volumeMenuTitle(sessionId, menu.title), menu.options)
+		// } else if (cmd === OPTION_SET_BOOST_CUSTOMETH_SETTING) {
 
-			const sessionId = id;
-			assert(sessionId)
+		// 	const sessionId = id;
+		// 	assert(sessionId)
 
-			const menu = await json_buyETHOption(sessionId, "custom");
-			await switchMenuWithTitle(chatid, messageId, get_volumeMenuTitle(sessionId, menu.title), menu.options)
-		} else if (cmd === OPTION_VOLUME_BACK) {
+		// 	const menu = await json_buyETHOption(sessionId, "custom");
+		// 	await switchMenuWithTitle(chatid, messageId, get_volumeMenuTitle(sessionId, menu.title), menu.options)
+		// } else if (cmd === OPTION_VOLUME_BACK) {
 
-			const sessionId = id;
-			assert(sessionId)
-			const session = sessions.get(sessionId)
-			if(session) {
-				session.charge_active = 0
-				await database.updateUser(session)
-			}
+		// 	const sessionId = id;
+		// 	assert(sessionId)
+		// 	const session = sessions.get(sessionId)
+		// 	if (session) {
+		// 		session.charge_active = 0
+		// 		await database.updateUser(session)
+		// 	}
 
-			stateMap_set(chatid, STATE_IDLE, { sessionId })
+		// 	stateMap_set(chatid, STATE_IDLE, { sessionId })
 
-			const menu = await json_boostETHSettings(sessionId);
-			switchMenuWithTitle(chatid, messageId, menu.title, menu.options)
+		// 	const menu = await json_boostETHSettings(sessionId);
+		// 	switchMenuWithTitle(chatid, messageId, menu.title, menu.options)
 
-		}
+		// }
 
 	} catch (error) {
 		afx.error_log('getTokexecuteCommand', error)
