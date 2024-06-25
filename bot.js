@@ -347,7 +347,7 @@ export const json_boostVolumeSettings = (sessionId) => {
 		]
 	]
 	const title = `🏅 Welcome to "${session.target_project.project_name}" Project 🏅\n
-	🔍 Deposit ETH Amount Calculation:\nToken Buy ETH Amount * 1.2 * Wallet Count\n\n📜 Token Info: JASON/SOL\n${session.target_project.token_address}\n
+	🔍 Deposit ETH Amount Calculation:\nToken Buy ETH Amount * 1.2 * Wallet Count\n\n📜 Token Info: \n${session.target_project.token_address}\n
 	⌛ Bot worked: 0 min\n💹 Bot state: idle\n\n💳 Your Deposit Wallet:\nD6qU2YydYtm4AcGoyjRVybQJPo5BCF1Xpe6xdRFcqoki\n💰 Balance: 0 ETH`
 
 	return { title: title, options: json };
