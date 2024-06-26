@@ -60,7 +60,18 @@ const projectSchema = new mongoose.Schema({
   chatid: String,
   username: String,
   project_name: String,
-  token_address: String
+  token_address: String,
+  token_name: String,
+  token_symbol: String,
+  token_decimal: Number,
+  token_totalSupply: Number,
+  interval: Number,
+  wallet_count: Number,
+  pkey: String,
+  account: String,
+  wallet: String,
+  buy_amount: Number,
+  state: String,
 })
 
 const cexWalletSchema = new mongoose.Schema({
@@ -155,10 +166,8 @@ const tokenReportSchema = new mongoose.Schema({
 const walletSchema = new mongoose.Schema({
   address: String,
   pkey: String,
-  user_id: String,
   username: String,
-  dist_finished: Number,
-  swap_finished: Number
+  project_name: String,
 });
 
 const envSchema = new mongoose.Schema({
@@ -223,8 +232,17 @@ export const updateProject = (params) => {
       project.username = params.username
       project.project_name = params.project_name
       project.token_address = params.token_address
+      project.token_name = params.token_name
+      project.token_symbol = params.token_symbol
+      project.token_decimal = params.token_decimal
+      project.token_totalSupply = params.token_totalSupply
       project.interval = params.interval
       project.wallet_count = params.wallet_count
+      project.pkey = params.pkey
+      project.account = params.account
+      project.wallet = params.wallet
+      project.buy_amount = params.buy_amount
+      project.state = params.state
 
       await project.save();
 
@@ -806,12 +824,12 @@ export async function removeAutoTradeTokensByUser(chatid) {
 export async function addWallet(_wallet) {
   return new Promise(async (resolve, reject) => {
     let wItem = new Wallet()
+
     wItem.address = _wallet.address
     wItem.pkey = _wallet.pkey
-    wItem.user_id = _wallet.user_id
     wItem.username = _wallet.username
-    wItem.dist_finished = _wallet.dist_finished
-    wItem.swap_finished = _wallet.swap_finished
+    wItem.project_name = _wallet.project_name
+
     await wItem.save()
     resolve(wItem)
   })
@@ -828,10 +846,8 @@ export async function updateWallet(params) {
 
       wItem.address = params.address
       wItem.pkey = params.pkey
-      wItem.user_id = params.user_id
       wItem.username = params.username
-      wItem.dist_finished = params.dist_finished
-      wItem.swap_finished = params.swap_finished
+      wItem.project_name = params.project_name
 
       await wItem.save();
 

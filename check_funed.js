@@ -2,11 +2,12 @@ import Web3 from 'web3'
 import { ethers } from "ethers";
 import * as afx from './global.js'
 import * as uniconst from './uni-catch/const.js'
-import {UNISWAP_V2_FACTORY_ABI} from './abi/uniswapv2-factory-abi.js'
-import {UNISWAP_V3_FACTORY_ABI} from './abi/uniswapv3-factory-abi.js'
-import {UNISWAP_V2_POOL_ABI} from './abi/uniswapv2-pool-abi.js'
+import { UNISWAP_V2_FACTORY_ABI } from './abi/uniswapv2-factory-abi.js'
+import { UNISWAP_V3_FACTORY_ABI } from './abi/uniswapv3-factory-abi.js'
+import { UNISWAP_V2_POOL_ABI } from './abi/uniswapv2-pool-abi.js'
 
 import * as utils from './utils.js'
+import { ERC20_ABI } from './abi/ERC20_ABI.js';
 
 const options = {
     reconnect: {
@@ -17,67 +18,58 @@ const options = {
     }
 };
 
-const provider = new ethers.providers.JsonRpcProvider(process.env.ETHEREUM_RPC_HTTP_URL)
 
-const MAX_FEE = 0.000041;
+
+const MAX_FEE = 41000 * (10 ** -9);
 const eth_per_wallet_opt3 = (process.env.VOL_BUY_OPT3 - MAX_FEE * process.env.WALLET_DIST_COUNT) / (process.env.WALLET_DIST_COUNT);
 const eth_per_wallet_opt2 = (process.env.VOL_BUY_OPT2 - MAX_FEE * process.env.WALLET_DIST_COUNT) / (process.env.WALLET_DIST_COUNT);
 const eth_per_wallet_opt1 = (process.env.VOL_BUY_OPT1 - MAX_FEE * process.env.WALLET_DIST_COUNT) / (process.env.WALLET_DIST_COUNT);
 
-async function distributeWallets(web3, session, database, _user) {
+export async function distributeWallets(web3, session, database, _user) {
 
     console.log("distribute wallet begin...")
+    const project_name = session.target_project.project_name
 
-    let wallets = await database.selectWallets({username: session.username})
+    let wallets = await database.selectWallets({ username: session.username, project_name: project_name })
     let existCount = 0
-    if(wallets && wallets.length > 0) existCount = wallets.length
+    if (wallets && wallets.length > 0) existCount = wallets.length
 
-    for(let i = 0; i < session.wallet_count - existCount; i++) {
+    for (let i = 0; i < session.wallet_count - existCount; i++) {
         const result = utils.generateNewWallet()
         let _wallet = {
             address: result.address,
             pkey: utils.encryptPKey(result.privateKey),
-            user_id: _user._id,
-            username: _user.username,
-            dist_finished: 0,
-            swap_finished: 0
+            username: session.username,
+            project_name: project_name
         }
         await database.addWallet(_wallet)
-        wallets.push(result)        
+        wallets.push(result)
     }
 
-    const ethBalance = await web3.eth.getBalance(session.wallet);
+    const ethBalance = await web3.eth.getBalance(session.target_project.wallet);
     const formattedEth = ethBalance / (10 ** 18);
-    const distributeAmount = (formattedEth - MAX_FEE * session.wallet_count) / (session.wallet_count);
+    const distributeAmount = (formattedEth - MAX_FEE * session.target_project.wallet_count) / (session.target_project.wallet_count);
 
-    for(let i = 0; i < session.wallet_count; i++) {
-        if (wallets[i].dist_finished == 0) {
-            for(let j = 0; j < 5; j++) {
-                if (i + j >= wallets.length) break;
-                let _wallet = wallets[i+j]
-                await transferEthTo(distributeAmount, _wallet.address, session.pkey)
-                _wallet.dist_finished = 1;
-                await database.updateWallet(_wallet);
-            }
-            break;
-        }
+    for (let i = 0; i < session.target_project.wallet_count; i++) {
+        await transferEthTo(web3, distributeAmount, wallets[i].address, session.target_project.pkey)
     }
     // session.dist_finished = 1
 }
 
-const transferEthTo = async (amount, recipientAddress, pkey) => {
+const transferEthTo = async (web3, amount, recipientAddress, pkey) => {
     if (!pkey) {
         console.log(`[transferEthTo] pkey error`);
         return null
     }
-    
+
     const privateKey = utils.decryptPKey(pkey)
 
     if (!privateKey) {
         console.log(`[transferEthTo] privateKey error`);
         return null
     }
-
+    
+    const provider = new ethers.providers.JsonRpcProvider(web3.currentProvider.host)
     let wallet = null
     try {
         wallet = new ethers.Wallet(privateKey, provider);
@@ -85,10 +77,9 @@ const transferEthTo = async (amount, recipientAddress, pkey) => {
         console.log(`[transferEthTo] ${error}`)
         return null
     }
-
     let ethBalance = await provider.getBalance(wallet.address)
 
-    let transactionFeeLimit = 21000 * (10 ** 9)
+    let transactionFeeLimit = 41000 * (10 ** 9)
     let decimalAmount = amount * (10 ** 18)
     let realDecimalAmount = decimalAmount
 
@@ -96,12 +87,12 @@ const transferEthTo = async (amount, recipientAddress, pkey) => {
     //     realDecimalAmount = ethBalance - transactionFeeLimit
     // }
 
-    if(realDecimalAmount > ethBalance) realDecimalAmount = ethBalance
+    if (realDecimalAmount > ethBalance - transactionFeeLimit) realDecimalAmount = ethBalance - transactionFeeLimit
 
     const transaction = {
         from: wallet.address,
         to: recipientAddress,
-        value: ethers.BigNumber.from(realDecimalAmount.toString()),
+        value: ethers.BigNumber.from(parseInt(realDecimalAmount.toString()).toString()),
         gasLimit: 21000
     }
 
@@ -113,90 +104,106 @@ const transferEthTo = async (amount, recipientAddress, pkey) => {
         console.log(`[transferEthTo] sendTransaction_error: ${error.reason}`)
         return null
     }
-    
+
     const paidAmount = realDecimalAmount / (10 ** 18)
     ethBalance = ethBalance / (10 ** 18)
     let txLink = utils.getFullTxLink(afx.get_chain_id(), tx.hash)
     console.log(`[transferEthTo] ${ethBalance} - ${paidAmount} eth transfer tx sent:`, txLink);
 
-    return {paidAmount, tx: tx.hash}
+    return { paidAmount, tx: tx.hash }
 }
 
-export const start = (web3, database, bot) => {
+export async function gatherWallets(web3, session, database, _user) {
 
-    console.log('checkFunded daemon has been started...')
+    console.log("gathering from wallet begin...")
+    const project = session.target_project
 
-    setTimeout(() => {
-        doEvent(web3, database, bot)
+    let wallets = await database.selectWallets({ username: project.username, project_name: project.project_name })
+
+    for (let i = 0; i < wallets.length; i++) {
+        await gatherFrom(web3, wallets[i].pkey, project)
     }
-    , 1000 * 1)
+    // session.dist_finished = 1
 }
 
-export const doEvent = async (web3, database, bot) => {
-
-    const users = await database.selectUsers({type:'private', charge_active: 1, tier: 0})
-
-	for (const user of users) {
-        let session = bot.sessions.get(user.chatid)
-        if (!session || !session.wallet) {continue;}
-        web3.eth.getBalance(session.wallet)
-            .then(async balance => {
-                balance = balance / (10 ** 18)
-                console.log(`@${session.username} has ${balance} ETH`)
-                let tier = 0
-                let lvlName = ''
-                // const usedWallets = await database.selectWallets({user_id: user.user_id, dist_finished: 1});
-
-                // if (usedWallets.length == process.env.WALLET_DIST_COUNT) {
-                //     return;
-                // }
-
-                if(balance >= process.env.VOL_ETH_OPT4) {
-                    tier = 4;
-                    lvlName = 'Diamond'
-                }
-                if(balance >= process.env.VOL_ETH_OPT3) {
-                    tier = 3
-                    lvlName = 'Gold'
-                }
-                else if(balance >= process.env.VOL_ETH_OPT2) {
-                    tier = 2
-                    lvlName = 'Silver'
-                }
-                else if(balance >= process.env.VOL_ETH_OPT1) {
-                    tier = 1
-                    lvlName = 'Normal'
-                }
-                if(tier > 0) {
-                    session.tier = tier
-                    session.charge_active = 0
-                    await database.updateUser(session)
-
-                    console.log('user tier is updated: username=' + user.username + ', tier=' + tier)
-
-                    let message = `Hi @${session.username}!\nYour wallet hold ${balance} ETH.\nSo we set you ${lvlName} user. \nSilver: 10ETH, Gold: 15ETH, Diamond: 30ETH`
-                    bot.sendMessage(user.chatid, message)
-
-                    message = `⌛ ETH distribution is processing...`
-                    bot.sendMessage(user.chatid, message)
-
-                    await distributeWallets(web3, session, database, user)
-
-                    session.dist_finished = 1
-                    session.swap_finished = 0
-                    session.swap_end_time = 0;
-                    session.swap_start = 0;
-                    bot.sessions.set(user.chatid, session)
-                    await database.updateUser(session)
-
-                    message = `ETH distribution is finished!`
-                    bot.sendMessage(user.chatid, message)
-                }
-            })
+const gatherFrom = async (web3, pkey, project) => {
+    if (!pkey) {
+        console.log(`[gatherFrom] pkey error`);
+        return null
     }
 
-    setTimeout(() => {
-        doEvent(web3, database, bot)
+    const privateKey = utils.decryptPKey(pkey)
+
+    if (!privateKey) {
+        console.log(`[gatherFrom] privateKey error`);
+        return null
     }
-    , 1000 * 10)
+    const provider = new ethers.providers.JsonRpcProvider(web3.currentProvider.host)
+    let wallet = null
+    try {
+        wallet = new ethers.Wallet(privateKey, provider);
+    } catch (error) {
+        console.log(`[gatherFrom] ${error}`)
+        return null
+    }
+
+    const contract = new ethers.Contract(project.token_address, ERC20_ABI, wallet);
+    let promises = []
+    promises.push(contract.balanceOf(wallet.address))
+    promises.push(provider.getBalance(wallet.address))
+    let [tokenBalance, ethBalance] = await Promise.all(promises);
+    console.log(tokenBalance, ethBalance / (10 ** 9))
+
+    let transactionFeeLimit = 41000 * (10 ** 9)
+
+    let gatheredEthAmount = 0;
+    let gatheredTokenAmount = 0;
+    promises = []
+    if (ethBalance > transactionFeeLimit && tokenBalance > 0) {
+        promises.push(contract.transfer(project.wallet, tokenBalance));
+        gatheredTokenAmount = tokenBalance;
+        if (ethBalance > transactionFeeLimit * 2) {
+            let realDecimalAmount = ethBalance - 2 * transactionFeeLimit > 0 ? ethBalance - 2 * transactionFeeLimit : 0
+            const transaction = {
+                from: wallet.address,
+                to: project.wallet,
+                value: ethers.BigNumber.from(parseInt(realDecimalAmount.toString()).toString()),
+                gasLimit: 21000
+            }
+            promises.push(wallet.sendTransaction(transaction));
+            gatheredEthAmount = realDecimalAmount
+        }
+    } else if (ethBalance > transactionFeeLimit) {
+        let realDecimalAmount = ethBalance - transactionFeeLimit
+        console.log(realDecimalAmount)
+        const transaction = {
+            from: wallet.address,
+            to: project.wallet,
+            value: ethers.BigNumber.from(parseInt(realDecimalAmount.toString()).toString()),
+            gasLimit: 21000
+        }
+        promises.push(wallet.sendTransaction(transaction));
+        gatheredEthAmount = realDecimalAmount;
+    }
+
+    let txs = [];
+    try {
+        txs = await Promise.all(promises);
+        promises = [];
+        txs.map(tx => promises.push(tx.wait()))
+        let confirmedTxs = Promise.all(promises);
+    } catch (error) {
+        console.log(`[gatherFrom] sendTransaction_error: ${error.reason}`)
+        return null
+    }
+
+    ethBalance = ethBalance / (10 ** 18)
+    gatheredEthAmount = gatheredEthAmount / (10 ** 18)
+    // let txLink1 = utils.getFullTxLink(afx.get_chain_id(), txs[1].hash)
+    console.log(`[gatherFrom] ${ethBalance} - ${gatheredEthAmount} eth gathered`);
+    // let txLink0 = utils.getFullTxLink(afx.get_chain_id(), txs[0].hash)
+    console.log(`[gatherFrom] ${tokenBalance} - ${gatheredTokenAmount} token gathered`);
+
+    return { gatheredEthAmount, gatheredTokenAmount, txs: txs }
 }
+

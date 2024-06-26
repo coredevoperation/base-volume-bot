@@ -13,6 +13,10 @@ import * as afx from './global.js'
 import * as callHistory from './call_history.js'
 import { md5 } from './md5.js'
 import { simulation } from './simulation_call.js'
+import { distributeWallets, gatherWallets } from './check_funed.js';
+import { get_idle_web3, web3 } from './index.js';
+import { format } from 'path';
+import { autoSwap_Buy_thread } from './auto_trader.js';
 
 const token = process.env.BOT_TOKEN
 export const bot = new TelegramBot(token,
@@ -44,101 +48,100 @@ export const COMMAND_STOPKICK = 'stopkick'
 export const COMMAND_MYACCOUNT = 'myaccount'
 export const COMMAND_SIMULATION = 'simulation'
 
-export const OPTION_MAIN_SETTING = 0
-export const OPTION_SET_FRESH_WALLET_SETTING = 1
-export const OPTION_SET_FRESH_WALLET_TURN_ON = 2
-export const OPTION_SET_FRESH_WALLET_TURN_OFF = 3
+// export const OPTION_MAIN_SETTING = 0
+// export const OPTION_SET_FRESH_WALLET_SETTING = 1
+// export const OPTION_SET_FRESH_WALLET_TURN_ON = 2
+// export const OPTION_SET_FRESH_WALLET_TURN_OFF = 3
 
-export const OPTION_SET_WHALE_WALLET_SETTING = 4
-export const OPTION_SET_WHALE_WALLET_TURN_ON = 5
-export const OPTION_SET_WHALE_WALLET_TURN_OFF = 6
+// export const OPTION_SET_WHALE_WALLET_SETTING = 4
+// export const OPTION_SET_WHALE_WALLET_TURN_ON = 5
+// export const OPTION_SET_WHALE_WALLET_TURN_OFF = 6
 
-export const OPTION_SET_KYC_WALLET_SETTING = 7
-export const OPTION_SET_KYC_WALLET_TURN_ON = 8
-export const OPTION_SET_KYC_WALLET_TURN_OFF = 9
+// export const OPTION_SET_KYC_WALLET_SETTING = 7
+// export const OPTION_SET_KYC_WALLET_TURN_ON = 8
+// export const OPTION_SET_KYC_WALLET_TURN_OFF = 9
 
-export const OPTION_SET_INIT_LIQUIDITY = 10
-export const OPTION_SET_INIT_LIQUIDITY_ETH = 11
-export const OPTION_SET_INIT_LIQUIDITY_USD = 12
-export const OPTION_SET_DTGS = 13
-export const OPTION_DTGS_SELECT_DEX = 14
-export const OPTION_DTGS_INPUT_TOKEN_ADDRESS = 15
-export const OPTION_DTGS_SHOW_TOKENS = 16
-export const OPTION_DTGS_DELETE_TOKEN = 17
-export const OPTION_DTGS_DELETE_ALL_TOKEN = 18
-export const OPTION_SET_DEFAULT = 19
-export const OPTION_GET_ALL_SETTING = 20
-export const OPTION_SET_LPLOCK = 21
-export const OPTION_SET_LPLOCK_TURN_OFF = 22
-export const OPTION_SET_LPLOCK_TURN_ON = 23
-export const OPTION_SET_HONEYPOT = 24
-export const OPTION_SET_HONEYPOT_TURN_OFF = 25
-export const OPTION_SET_HONEYPOT_TURN_ON = 26
-export const OPTION_SET_CONTRACT_AGE = 27
-export const OPTION_SET_CONTRACT_AGE_PLUS0_1DAY = 28
-export const OPTION_SET_CONTRACT_AGE_PLUS1DAY = 29
-export const OPTION_SET_CONTRACT_AGE_PLUS1MONTH = 30
-export const OPTION_SET_CONTRACT_AGE_PLUS1YEAR = 31
-export const OPTION_SET_CONTRACT_AGE_PLUSNUMBERDAYS = 32
-export const OPTION_SET_CONTRACT_AGE_TURN_OFF = 33
-export const OPTION_SET_DORMANT = 34
-export const OPTION_SET_DORMANT_PLUS1MONTH = 35
-export const OPTION_SET_DORMANT_PLUS3MONTH = 36
-export const OPTION_SET_DORMANT_PLUS6MONTH = 37
-export const OPTION_SET_DORMANT_PLUS1YEAR = 38
-export const OPTION_SET_DORMANT_TURN_OFF = 39
-export const OPTION_SET_SNIPER_DETECTOR = 40
-export const OPTION_SET_SNIPER_DETECTOR_TURN_ON = 41
-export const OPTION_SET_SNIPER_DETECTOR_TURN_OFF = 42
-export const OPTION_SET_USER_WALLET_SETTING = 43
-export const OPTION_SET_USER_WALLET_ON = 44
-export const OPTION_SET_USER_WALLET_OFF = 45
-export const OPTION_SET_USER_SLIPPAGE = 46
-export const OPTION_SET_USER_SELL_SETTING = 47
-export const OPTION_SET_USER_BUY_SETTING = 48
-export const OPTION_SET_USER_BUY_AUTO = 49
-export const OPTION_SET_USER_SELL_AUTO = 50
-export const OPTION_SET_USER_SELL_HI = 51
-export const OPTION_SET_USER_SELL_LO = 52
-export const OPTION_SET_USER_SELL_HI_DELETE = 53
-export const OPTION_SET_USER_SELL_LO_DELETE = 54
-export const OPTION_SET_USER_SELL_HI_AMOUNT = 55
-export const OPTION_SET_USER_SELL_LO_AMOUNT = 56
-export const OPTION_SET_USER_SELL_HI_AMOUNT_DELETE = 57
-export const OPTION_SET_USER_SELL_LO_AMOUNT_DELETE = 58
-export const OPTION_SET_USER_WALLET_GENERATE = 59
-export const OPTION_SET_USER_BUY_AMOUNT = 60
-export const OPTION_SET_USER_BUY_AMOUNT_DELETE = 61
-export const OPTION_SET_USER_SELL_TOKEN_ADD = 62
-export const OPTION_SET_USER_SELL_TOKEN_SHOW = 63
-export const OPTION_SET_USER_SELL_TOKEN_REMOVE = 64
-export const OPTION_SET_USER_SELL_TOKEN_REMOVEALL = 65
-export const OPTION_BACK = -1
+// export const OPTION_SET_INIT_LIQUIDITY = 10
+// export const OPTION_SET_INIT_LIQUIDITY_ETH = 11
+// export const OPTION_SET_INIT_LIQUIDITY_USD = 12
+// export const OPTION_SET_DTGS = 13
+// export const OPTION_DTGS_SELECT_DEX = 14
+// export const OPTION_DTGS_INPUT_TOKEN_ADDRESS = 15
+// export const OPTION_DTGS_SHOW_TOKENS = 16
+// export const OPTION_DTGS_DELETE_TOKEN = 17
+// export const OPTION_DTGS_DELETE_ALL_TOKEN = 18
+// export const OPTION_SET_DEFAULT = 19
+// export const OPTION_GET_ALL_SETTING = 20
+// export const OPTION_SET_LPLOCK = 21
+// export const OPTION_SET_LPLOCK_TURN_OFF = 22
+// export const OPTION_SET_LPLOCK_TURN_ON = 23
+// export const OPTION_SET_HONEYPOT = 24
+// export const OPTION_SET_HONEYPOT_TURN_OFF = 25
+// export const OPTION_SET_HONEYPOT_TURN_ON = 26
+// export const OPTION_SET_CONTRACT_AGE = 27
+// export const OPTION_SET_CONTRACT_AGE_PLUS0_1DAY = 28
+// export const OPTION_SET_CONTRACT_AGE_PLUS1DAY = 29
+// export const OPTION_SET_CONTRACT_AGE_PLUS1MONTH = 30
+// export const OPTION_SET_CONTRACT_AGE_PLUS1YEAR = 31
+// export const OPTION_SET_CONTRACT_AGE_PLUSNUMBERDAYS = 32
+// export const OPTION_SET_CONTRACT_AGE_TURN_OFF = 33
+// export const OPTION_SET_DORMANT = 34
+// export const OPTION_SET_DORMANT_PLUS1MONTH = 35
+// export const OPTION_SET_DORMANT_PLUS3MONTH = 36
+// export const OPTION_SET_DORMANT_PLUS6MONTH = 37
+// export const OPTION_SET_DORMANT_PLUS1YEAR = 38
+// export const OPTION_SET_DORMANT_TURN_OFF = 39
+// export const OPTION_SET_SNIPER_DETECTOR = 40
+// export const OPTION_SET_SNIPER_DETECTOR_TURN_ON = 41
+// export const OPTION_SET_SNIPER_DETECTOR_TURN_OFF = 42
+// export const OPTION_SET_USER_WALLET_SETTING = 43
+// export const OPTION_SET_USER_WALLET_ON = 44
+// export const OPTION_SET_USER_WALLET_OFF = 45
+// export const OPTION_SET_USER_SLIPPAGE = 46
+// export const OPTION_SET_USER_SELL_SETTING = 47
+// export const OPTION_SET_USER_BUY_SETTING = 48
+// export const OPTION_SET_USER_BUY_AUTO = 49
+// export const OPTION_SET_USER_SELL_AUTO = 50
+// export const OPTION_SET_USER_SELL_HI = 51
+// export const OPTION_SET_USER_SELL_LO = 52
+// export const OPTION_SET_USER_SELL_HI_DELETE = 53
+// export const OPTION_SET_USER_SELL_LO_DELETE = 54
+// export const OPTION_SET_USER_SELL_HI_AMOUNT = 55
+// export const OPTION_SET_USER_SELL_LO_AMOUNT = 56
+// export const OPTION_SET_USER_SELL_HI_AMOUNT_DELETE = 57
+// export const OPTION_SET_USER_SELL_LO_AMOUNT_DELETE = 58
+// export const OPTION_SET_USER_WALLET_GENERATE = 59
+// export const OPTION_SET_USER_BUY_AMOUNT = 60
+// export const OPTION_SET_USER_BUY_AMOUNT_DELETE = 61
+// export const OPTION_SET_USER_SELL_TOKEN_ADD = 62
+// export const OPTION_SET_USER_SELL_TOKEN_SHOW = 63
+// export const OPTION_SET_USER_SELL_TOKEN_REMOVE = 64
+// export const OPTION_SET_USER_SELL_TOKEN_REMOVEALL = 65
+// export const OPTION_BACK = -1
 
-export const OPTION_SET_BOOST_VOLUME = 300
-export const OPTION_SET_BOOST_5ETH_SETTING = 301
-export const OPTION_SET_BOOST_10ETH_SETTING = 302
-export const OPTION_SET_BOOST_15ETH_SETTING = 303
-export const OPTION_SET_BOOST_30ETH_SETTING = 304
-export const OPTION_SET_BOOST_CUSTOMETH_SETTING = 305
-export const OPTION_SET_BOOST_WITHDRAW = 306
+// export const OPTION_SET_BOOST_VOLUME = 300
+// export const OPTION_SET_BOOST_5ETH_SETTING = 301
+// export const OPTION_SET_BOOST_10ETH_SETTING = 302
+// export const OPTION_SET_BOOST_15ETH_SETTING = 303
+// export const OPTION_SET_BOOST_30ETH_SETTING = 304
+// export const OPTION_SET_BOOST_CUSTOMETH_SETTING = 305
 
-export const OPTION_VOLUME_BACK = 399
+// export const OPTION_VOLUME_BACK = 399
 
 
-export const OPTION_MSG_COPY_ADDRESS = 100
-export const OPTION_MSG_MORE_INFO = 101
-export const OPTION_MSG_BACK_INFO = 102
+// export const OPTION_MSG_COPY_ADDRESS = 100
+// export const OPTION_MSG_MORE_INFO = 101
+// export const OPTION_MSG_BACK_INFO = 102
 
-export const OPTION_MSG_BUY_ETH_0_05 = 110
-export const OPTION_MSG_BUY_ETH_0_1 = 111
-export const OPTION_MSG_BUY_ETH_0_5 = 112
-export const OPTION_MSG_BUY_ETH_X = 113
+// export const OPTION_MSG_BUY_ETH_0_05 = 110
+// export const OPTION_MSG_BUY_ETH_0_1 = 111
+// export const OPTION_MSG_BUY_ETH_0_5 = 112
+// export const OPTION_MSG_BUY_ETH_X = 113
 
-export const OPTION_MSG_SELL_ETH_0_25 = 114
-export const OPTION_MSG_SELL_ETH_0_50 = 115
-export const OPTION_MSG_SELL_ETH_0_100 = 116
-export const OPTION_MSG_SELL_ETH_X = 117
+// export const OPTION_MSG_SELL_ETH_0_25 = 114
+// export const OPTION_MSG_SELL_ETH_0_50 = 115
+// export const OPTION_MSG_SELL_ETH_0_100 = 116
+// export const OPTION_MSG_SELL_ETH_X = 117
 
 export const STATE_IDLE = 0
 export const STATE_CREATE_NEW_PROJECT = 1
@@ -149,41 +152,37 @@ export const STATE_WAIT_NEW_PROJECT_NAME = 5
 export const STATE_WAIT_NEW_PROJECT_TOKEN = 6
 export const STATE_WAIT_CHANGE_PROJECT_TOKEN = 7
 export const STATE_CONFIRM_DELETE_PROJECT = 8
-export const STATE_WAIT_INIT_USDT_USDC = 7
-export const STATE_WAIT_DAILY_STATISTIC_TOKEN_ADDRESS = 8
-export const STATE_WAIT_MIN_DORMANT_WALLET_COUNT = 9
-export const STATE_WAIT_SET_DEFAULT = 10
-export const STATE_WAIT_MIN_SNIPER_COUNT = 11
-export const STATE_WAIT_MIN_CONTRACT_AGE = 12
-export const STATE_WAIT_SET_USER_WALLET_PRIVATEKEY = 13
-export const STATE_WAIT_SET_USER_SLIPPAGE = 14
-export const STATE_WAIT_SET_ETH_X_SWAP = 15
-export const STATE_WAIT_SET_TOKEN_X_SWAP = 16
+export const STATE_SET_PROJECT_BUY_AMOUNT = 9
+export const STATE_SET_PROJECT_WALLET_COUNT = 10
+export const STATE_SET_PROJECT_INTERVAL = 11
+export const STATE_PROJECT_DIVIDE = 12
+export const STATE_PROJECT_GATHER = 13
+export const STATE_SET_PROJECT_WITHDRAW = 14
+export const STATE_PROJECT_HELP = 15
 
-export const STATE_WAIT_SET_USER_SELL_HI = 17
-export const STATE_WAIT_SET_USER_SELL_LO = 18
-
-export const STATE_WAIT_SET_USER_SELL_HI_AMOUNT = 19
-export const STATE_WAIT_SET_USER_SELL_LO_AMOUNT = 20
-export const STATE_WAIT_SET_USER_BUY_AMOUNT = 21
-export const STATE_WAIT_ADD_AUTOTRADETOKEN = 22
-export const STATE_WAIT_WITHDRAW_ADDRESS = 23
+export const STATE_WAIT_PROJECT_BUY_AMOUNT = 20
+export const STATE_WAIT_PROJECT_WALLET_COUNT = 21
+export const STATE_WAIT_PROJECT_INTERVAL = 22
+export const STATE_WAIT_PROJECT_WITHDRAW_ADDRESS = 23
 
 export const STATE_CHOOSE_PROJECT = 31; // 31~40
-
 export const STATE_DELETE_PROJECT = 41;	// 31~40
-
 export const STATE_CHANGE_TOKEN_PROJECT = 51; // 51~60
+
+export const STATE_PROJECT_VOLUME_BOOST_START = 77;
+export const STATE_PROJECT_REFRESH = 78;
 
 export const STATE_BACK_TO_PROJECT_SETTING = 100;
 export const STATE_BACK_TO_MANAGE_PROJECT = 101;
 
-export const OPTION_MSG_SIMULATION_START = 130
-export const OPTION_MSG_SIMULATION_SETTING = 131
-export const OPTION_MSG_BACK_SIMULATION_INFO = 132
+export const OPTION_BUY_AMOUNT = 130
+export const OPTION_WALLET_COUNT = 131
+export const OPTION_DIVIDE_ETH = 132
+export const OPTION_WORK_INTERVAL = 133
+export const OPTION_SET_BOOST_GATHER = 134
+export const OPTION_SET_BOOST_WITHDRAW = 135
+export const OPTION_WAIT_BUY_AMOUNT = 136
 
-export const SIMULATION_SET_INIT_ETH_AMOUNT = 133
-export const SIMULATION_SET_PROFIT_TARGET = 134
 export const SIMULATION_SET_TRAILING_STOP_LOSS = 135
 export const SIMULATION_SET_START_DATE = 136
 export const SIMULATION_SET_END_DATE = 137
@@ -331,24 +330,56 @@ export const json_deleteConfirmProjects = (sessionId) => {
 	return { title: 'Do you really want to delete this project?', options: json }
 }
 
-export const json_boostVolumeSettings = (sessionId) => {
+export const json_boostVolumeSettings = async (sessionId) => {
 	const session = sessions.get(sessionId);
 	if (!session) return { title: '', options: [] };
+
+	const web3Instance = get_idle_web3();
+	web3Instance.inUse = true;
+	const web3 = web3Instance.web3;
+	const balance = await web3.eth.getBalance(session.target_project.wallet);
+	web3Instance.inUse = false;
+	const formattedEth = balance / (10 ** 18);
+
 	const json = [
 		[
-			json_buttonItem(sessionId, SIMULATION_SET_TOKEN_ADDRESS/*OPTION_SET_BOOST_VOLUME*/, '🚀 Start')
+			json_buttonItem(sessionId, STATE_PROJECT_VOLUME_BOOST_START/*OPTION_SET_BOOST_VOLUME*/, '🚀 Start')
 		],
 		[
-			json_buttonItem(sessionId, SIMULATION_SET_VOLUME_WALLET_COUNT, `🧾  Set Wallet Size (${session.wallet_count})`),
-			json_buttonItem(sessionId, SIMULATION_SET_VOLUME_INTERVAL, `🕰  Set Interval (${session.interval}s)`),
+			json_buttonItem(sessionId, STATE_SET_PROJECT_BUY_AMOUNT, `💸 Buy with ${session.target_project.buy_amount}% ETH`)
 		],
 		[
-			json_buttonItem(sessionId, OPTION_SET_BOOST_WITHDRAW, '💰 Withdraw')
-		]
+			json_buttonItem(sessionId, STATE_SET_PROJECT_WALLET_COUNT, `🧾  Set Wallet Size (${session.target_project.wallet_count})`),
+			json_buttonItem(sessionId, STATE_PROJECT_DIVIDE, '✂ Divide'),
+			json_buttonItem(sessionId, STATE_SET_PROJECT_INTERVAL, `🕰  Set Interval (${session.target_project.interval}s)`),
+		],
+		[
+			json_buttonItem(sessionId, STATE_PROJECT_GATHER, '💷 Gather'),
+			json_buttonItem(sessionId, STATE_SET_PROJECT_WITHDRAW, '💰 Withdraw')
+		],
+		[
+			json_buttonItem(sessionId, STATE_PROJECT_REFRESH, '🔄 Refresh'),
+			json_buttonItem(sessionId, STATE_PROJECT_HELP, '📖 Help')
+		],
+		[
+			json_buttonItem(sessionId, STATE_BACK_TO_PROJECT_SETTING, '⬅ Back')
+		],
 	]
-	const title = `🏅 Welcome to "${session.target_project.project_name}" Project 🏅\n
-	🔍 Deposit ETH Amount Calculation:\nToken Buy ETH Amount * 1.2 * Wallet Count\n\n📜 Token Info: \n${session.target_project.token_address}\n
-	⌛ Bot worked: 0 min\n💹 Bot state: idle\n\n💳 Your Deposit Wallet:\nD6qU2YydYtm4AcGoyjRVybQJPo5BCF1Xpe6xdRFcqoki\n💰 Balance: 0 ETH`
+	const title = `🏅 Welcome to ${session.target_project.project_name} Project 🏅
+	To increase the volume, you first deposit ETH to deposit wallet. Then you should divide ETH to zombi wallets and after finished click start.
+	
+	🔍 Deposit ETH Amount Calculation:
+	Token Buy ETH Amount * 1.2 * Wallet Count
+	
+	📜 Token Info: ${session.target_project.token_symbol}
+<code>${session.target_project.token_address}</code>
+
+	⌛ Bot worked: 0 min
+	💹 Bot state: ${session.target_project.state}
+	
+	💳 Your Deposit Wallet:
+<code>${session.target_project.wallet}</code>
+	💰 Balance: ${formattedEth} ETH`
 
 	return { title: title, options: json };
 }
@@ -458,6 +489,12 @@ async function switchMenu(chatId, messageId, json_buttons) {
 	await bot.editMessageReplyMarkup(keyboard, { chat_id: chatId, message_id: messageId })
 }
 
+async function removeMessage(chatId, messageId) {
+	if (chatId && messageId) {
+		await bot.deleteMessage(chatId, messageId);
+	}
+}
+
 async function switchMenuWithTitle(chatId, messageId, title, json_buttons) {
 
 	const keyboard = {
@@ -469,7 +506,7 @@ async function switchMenuWithTitle(chatId, messageId, title, json_buttons) {
 
 	try {
 
-		await bot.editMessageText(title, { chat_id: chatId, message_id: messageId, reply_markup: keyboard })
+		await bot.editMessageText(title, { chat_id: chatId, message_id: messageId, reply_markup: keyboard, parse_mode: 'HTML' })
 
 	} catch (error) {
 		afx.error_log('[switchMenuWithTitle]', error)
@@ -504,7 +541,7 @@ export async function openMenu(chatId, menuTitle, json_buttons) {
 		force_reply: true
 	};
 
-	await bot.sendMessage(chatId, menuTitle, { reply_markup: keyboard });
+	await bot.sendMessage(chatId, menuTitle, { reply_markup: keyboard, parse_mode: 'HTML' });
 }
 
 export const get_menuTitle = (sessionId, subTitle) => {
@@ -542,69 +579,6 @@ export const get_volumeMenuTitle = (sessionId, subTitle) => {
 	}
 
 	return result
-}
-
-const json_buyETHOption = async (sessionId, ethAmount) => {
-
-	const session = sessions.get(sessionId)
-	if (!session) {
-		return null
-	}
-
-	let json = [];
-
-	// json.push([json_buttonItem(sessionId, OPTION_SET_USER_BUY_AUTO, session.autobuy ? '✅ Auto Buy' : '❌ Auto Buy')])
-
-	// json.push([
-	// 	json_buttonItem(sessionId, OPTION_SET_USER_BUY_AMOUNT, '✏️ Buy ETH Amount'),
-	// 	json_buttonItem(sessionId, OPTION_SET_USER_BUY_AMOUNT_DELETE, '⌫ Buy ETH Amount'),
-	// ])
-
-	json.push([json_buttonItem(sessionId, OPTION_VOLUME_BACK, 'Back')])
-	// json.push([json_buttonItem(sessionId, OPTION_SET_USER_WALLET_SETTING, 'Back')])
-
-	if (session) {
-		session.charge_active = 1
-		await database.updateUser(session)
-		console.log("charge active is set")
-	}
-	let result = `⬇️ Please send ${ethAmount} ETH to this address: \n${session.wallet}`
-
-	return { title: result, options: json };
-}
-
-const json_setDTGS = (sessionId) => {
-	const json = [
-		[
-			// json_buttonItem(sessionId, OPTION_DTGS_SELECT_DEX, 'Add a token address')
-			json_buttonItem(sessionId, OPTION_DTGS_INPUT_TOKEN_ADDRESS, 'Add a token address')
-		],
-		[
-			json_buttonItem(sessionId, OPTION_DTGS_SHOW_TOKENS, 'Remove token addresses')
-		],
-		[
-			json_buttonItem(sessionId, OPTION_MAIN_SETTING, 'Back')
-		],
-	]
-
-	return { title: '⬇️ Choose one for daily top gainer statistics setup', options: json };
-}
-
-
-const json_showAutoTradeTokensOption = async (sessionId) => {
-
-	const tokens = await database.getAutoTradeTokens(sessionId)
-
-	let json = [];
-	for (const token of tokens) {
-
-		json.push([json_buttonItem(`${sessionId}:${token._id.toString()}`, OPTION_SET_USER_SELL_TOKEN_REMOVE, `${token.address} [${token.symbol}]`)])
-	}
-
-	json.push([json_buttonItem(sessionId, OPTION_SET_USER_SELL_TOKEN_REMOVEALL, 'Remove All Tokens')])
-	json.push([json_buttonItem(sessionId, OPTION_SET_USER_SELL_SETTING, 'Back')])
-
-	return { title: '⬇️ Click any item to remove the token address you want to remove', options: json };
 }
 
 // const json_selectDexOption = (sessionId) => {
@@ -1370,6 +1344,12 @@ export async function init(command_proc, callback_proc) {
 			loggedin++
 		}
 
+		const projects = await database.allProjects(session);
+		for (let i = 0; i < projects?.length; i++) {
+			projects[i].state = "Idle";
+			await database.updateProject(projects[i])
+		}
+
 		sessions.set(session.chatid, session)
 		//showSessionLog(session)
 
@@ -1477,7 +1457,7 @@ const executeCommand = async (chatid, messageId, callbackQueryId, option) => {
 			const target_project = projects[cmd - STATE_CHOOSE_PROJECT];
 			session.target_project = target_project;
 
-			const menu = json_boostVolumeSettings(sessionId);
+			const menu = await json_boostVolumeSettings(sessionId);
 			stateMap_set(chatid, STATE_IDLE, { sessionId })
 			switchMenuWithTitle(chatid, messageId, menu.title, menu.options)
 		} else if (cmd == STATE_BACK_TO_PROJECT_SETTING) {
@@ -1530,40 +1510,104 @@ const executeCommand = async (chatid, messageId, callbackQueryId, option) => {
 			const menu = await json_manageProjects(sessionId);
 			stateMap_set(chatid, STATE_IDLE, { sessionId });
 			switchMenuWithTitle(chatid, messageId, menu.title, menu.options)
-		} else if (cmd == SIMULATION_SET_TOKEN_ADDRESS) {
+		} else if (cmd == STATE_SET_PROJECT_BUY_AMOUNT) {
 			const sessionId = id;
 			assert(sessionId)
 
 			// const msg = `Input token address (0x....)`
-			const msg = `Please send a token address for volume market making.(0x....)`
+			const msg = `🔢 Please input buy amount for ETH.(1% ~ 100%)`
 			sendMessage(chatid, msg)
 			await bot.answerCallbackQuery(callbackQueryId, { text: msg })
-			stateMap_set(chatid, SIMULATION_WAIT_TOKEN_ADDRESS, { sessionId })
-		} else if (cmd == SIMULATION_SET_VOLUME_WALLET_COUNT) {
+			stateMap_set(chatid, STATE_WAIT_PROJECT_BUY_AMOUNT, { sessionId })
+		} else if (cmd == STATE_SET_PROJECT_WALLET_COUNT) {
 			const sessionId = id;
 			assert(sessionId)
 
 			const msg = `🔢 Please input your wallet count for volume boost. Value range is ${process.env.MIN_WALLET_DIST_COUNT}~${process.env.MAX_WALLET_DIST_COUNT}.`
 			sendMessage(chatid, msg)
 			await bot.answerCallbackQuery(callbackQueryId, { text: msg })
-			stateMap_set(chatid, SIMULATION_WAIT_VOLUME_WALLET_COUNT, { sessionId })
-		} else if (cmd == SIMULATION_SET_VOLUME_INTERVAL) {
+			stateMap_set(chatid, STATE_WAIT_PROJECT_WALLET_COUNT, { sessionId })
+		} else if (cmd == STATE_SET_PROJECT_INTERVAL) {
 			const sessionId = id;
 			assert(sessionId)
 
 			const msg = `🔢 Please input your volume boosting interval. Value range is ${process.env.MIN_VOLUME_BOOST_INTERVAL}s~${process.env.MAX_VOLUME_BOOST_INTERVAL}s.`
 			sendMessage(chatid, msg)
 			await bot.answerCallbackQuery(callbackQueryId, { text: msg })
-			stateMap_set(chatid, SIMULATION_WAIT_VOLUME_INTERVAL, { sessionId })
-		} else if (cmd == OPTION_SET_BOOST_WITHDRAW) {
+			stateMap_set(chatid, STATE_WAIT_PROJECT_INTERVAL, { sessionId })
+		} else if (cmd == STATE_SET_PROJECT_WITHDRAW) {
 			const sessionId = id;
 			assert(sessionId)
 
-			const msg = `Please send a wallet address for withdraw ETH.(0x....)`
+			const msg = `🔢 Please send a wallet address for withdraw ETH.(0x....)`
 			sendMessage(chatid, msg)
 			await bot.answerCallbackQuery(callbackQueryId, { text: msg })
-			stateMap_set(chatid, STATE_WAIT_WITHDRAW_ADDRESS, { sessionId })
-		} 
+			stateMap_set(chatid, STATE_WAIT_PROJECT_WITHDRAW_ADDRESS, { sessionId })
+		} else if (cmd == STATE_PROJECT_DIVIDE) {
+			const sessionId = id;
+			assert(sessionId)
+
+			sendMessage(chatid, `✅ Divide for zombie wallets started.`);
+			const session = sessions.get(sessionId);
+			session.target_project.state = 'dividing'
+			database.updateProject(session.target_project)
+
+			const web3Instance = get_idle_web3()
+			web3Instance.inUse = true;
+			await distributeWallets(web3Instance.web3, session, database, null);
+			web3Instance.inUse = false;
+
+			sendMessage(chatid, `🎉 Divide for zombie wallets completed`)
+			const menu = await json_boostVolumeSettings(sessionId)
+			stateMap_set(chatid, STATE_IDLE, { sessionId })
+			openMenu(chatid, menu.title, menu.options)
+		} else if (cmd == STATE_PROJECT_GATHER) {
+			const sessionId = id;
+			assert(sessionId)
+
+			sendMessage(chatid, `✅ Gathering from zombie wallets started.`);
+			const session = sessions.get(sessionId);
+			session.target_project.state = 'Gathering'
+			database.updateProject(session.target_project)
+
+			const web3Instance = get_idle_web3()
+			web3Instance.inUse = true;
+			await gatherWallets(web3Instance.web3, session, database, null);
+			web3Instance.inUse = false;
+
+			session.target_project.state = 'Idle'
+			database.updateProject(session.target_project)
+
+			sendMessage(chatid, `🎉 Gathering from zombie wallets completed`)
+			const menu = await json_boostVolumeSettings(sessionId)
+			stateMap_set(chatid, STATE_IDLE, { sessionId })
+			openMenu(chatid, menu.title, menu.options)
+		} else if (cmd == STATE_PROJECT_REFRESH) {
+			const sessionId = id;
+			assert(sessionId)
+
+			const menu = await json_boostVolumeSettings(sessionId)
+			stateMap_set(chatid, STATE_IDLE, { sessionId })
+			switchMenuWithTitle(chatid, messageId, menu.title, menu.options)
+		} else if (cmd == STATE_PROJECT_VOLUME_BOOST_START) {
+			const sessionId = id;
+			assert(sessionId)
+
+			const session = sessions.get(sessionId)
+
+			session.target_project.state = "⌛ Running"
+			database.updateProject(session.target_project)
+
+			// sendMessage(chatid, "🚀 Volume boosting started.")
+			const menu = await json_boostVolumeSettings(sessionId);
+			stateMap_set(chatid, STATE_IDLE, { sessionId })
+			switchMenuWithTitle(chatid, messageId, menu.title, menu.options)
+
+			const web3Instance = get_idle_web3()
+			web3Instance.inUse = true;
+			await autoSwap_Buy_thread(web3Instance.web3, database, session.target_project)
+			web3Instance.inUse = false;
+		}
 		// else if (cmd == SIMULATION_SET_END_DATE) {
 		// 	const sessionId = id;
 		// 	assert(sessionId)

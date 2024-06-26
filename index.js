@@ -23,6 +23,7 @@ import * as callHistory from './call_history.js'
 
 import * as swapBot from './swap_bot.js'
 import * as autotrader from './auto_trader.js'
+import { rpc_list } from './constant.js'
 
 // import {startPendingSwapTrxListener, SniperDetector} from './sniper_detector.js'
 
@@ -38,6 +39,20 @@ const options = {
 export const web3 = new Web3(new Web3.providers.WebsocketProvider(process.env.ETHEREUM_RPC_URL, options))
 export const web3Http_buy = new Web3(process.env.ETHEREUM_RPC_HTTP_URL)
 export const web3Http_sell = new Web3(process.env.BASE_RPC_HTTP_URL)
+
+export const web3List = [];
+rpc_list.map((rpc) => {
+	const web3_inst = new Web3(rpc)
+	web3List.push({
+		web3: web3_inst,
+		inUse: false
+	})
+})
+
+export const get_idle_web3 = () => {
+	const idle_web3 = web3List.find(item => item.inUse == false);
+	return idle_web3
+}
 
 let filter_count = 0
 
@@ -249,7 +264,7 @@ server.start(web3, bot);
 // autokicker.start(web3, database, bot);
 // check_tiers.start(web3, database, bot);
 
-check_funded.start(web3, database, bot);
+// check_funded.start(web3, database, bot);
 
 //  UniV2.EventListener(web3, async (tokenInfo) => {
 
@@ -267,4 +282,4 @@ check_funded.start(web3, database, bot);
 // swapBot.start(web3, database, bot)
 // apiRepeater.start(web3)
 
-autotrader.start(web3Http_buy, web3Http_sell, database, bot);
+// autotrader.start(web3Http_buy, web3Http_sell, database, bot);

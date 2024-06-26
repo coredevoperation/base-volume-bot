@@ -538,7 +538,7 @@ export const sellToken = async (web3, database, session, tokenAddress, sellAmoun
     let rawTokenBalance = null;
 
     try {
-        slippage = 10 //session.wallets[session.wallets_index].snipe_sell_slippage ? session.wallets[session.wallets_index].snipe_sell_slippage : 5
+        slippage = 99 //session.wallets[session.wallets_index].snipe_sell_slippage ? session.wallets[session.wallets_index].snipe_sell_slippage : 5
         rawTokenBalance = web3.utils.toBN(await tokenContract.methods.balanceOf(wallet.address).call());
 
         if (unit === 'PERCENT') {

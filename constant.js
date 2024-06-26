@@ -1,5 +1,5 @@
 export const rpc_list = [
-    "https://base.llamarpc.com",
+    "https://base-mainnet.g.alchemy.com/v2/-g45vk_u9aGFtpqfFL5_qXXT5oZUMB2S",
     "https://mainnet.base.org",
     "https://base-rpc.publicnode.com",
     "https://1rpc.io/base",

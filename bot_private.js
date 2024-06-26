@@ -1,4 +1,5 @@
 import * as instance from './bot.js'
+import { get_idle_web3 } from './index.js'
 // import { chainId } from './swap_bot-1.js'
 import * as utils from './utils.js'
 import assert from 'assert'
@@ -328,6 +329,7 @@ ${loginStat}`;
 const processSettings = async (msg, database) => {
 
 	const privateId = msg.chat?.id.toString()
+	const messageId = msg.message_id
 
 	let stateNode = instance.stateMap_get(privateId)
 	if (!stateNode)
@@ -339,7 +341,7 @@ const processSettings = async (msg, database) => {
 		console.log("New project name:", value)
 
 		const session = instance.sessions.get(stateNode.data.sessionId)
-		
+
 		const result = await database.projectAlreadyExisted({ chatid: session.chatid, project_name: value });
 		console.log("validate result ---> ", result);
 		if (result) {
@@ -373,18 +375,33 @@ const processSettings = async (msg, database) => {
 
 			session.new_project_token = value;
 
-			await database.updateProject({
-				chatid: session.chatid,
-				username: session.username,
-				project_name: session.new_project_name,
-				token_address: session.new_project_token,
-				interval: process.env.VOLUME_BOOST_INTERVAL,
-				wallet_count: process.env.WALLET_DIST_COUNT
-			})
+			const result = utils.generateNewWallet()
+			console.log(result)
+			let new_project = {}
+			if (result) {
+				new_project.pkey = utils.encryptPKey(result.privateKey)
+				new_project.account = result.address
+				new_project.wallet = result.address
+			}
 
-			const menu = instance.json_boostVolumeSettings(session.chatid);
+			new_project.chatid = session.chatid
+			new_project.username = session.username
+			new_project.project_name = session.new_project_name
+			new_project.token_address = session.new_project_token
+			new_project.token_name = tokenInfo.name
+			new_project.token_symbol = tokenInfo.symbol
+			new_project.token_decimal = tokenInfo.decimal
+			new_project.token_totalSupply = tokenInfo.totalSupply
+			new_project.interval = process.env.VOLUME_BOOST_INTERVAL
+			new_project.wallet_count = process.env.WALLET_DIST_COUNT
+			new_project.buy_amount = 70
+			session.target_project = new_project
+
+			await database.updateProject(new_project)
+
+			const menu = await instance.json_boostVolumeSettings(session.chatid);
 			instance.stateMap_set(session.chatid, instance.STATE_IDLE, { sessionId: session.chatid })
-			instance.openMenu(session.chatid, getWelcomeMessage(), menu.options)
+			instance.openMenu(session.chatid, menu.title, menu.options)
 		} else {
 			instance.sendMessage(privateId, `😢 Sorry, there was some errors on the command. Please try again later 😉`)
 		}
@@ -419,6 +436,10 @@ const processSettings = async (msg, database) => {
 			}
 
 			targetProject.token_address = value;
+			targetProject.token_name = tokenInfo.name;
+			targetProject.token_symbol = tokenInfo.symbol;
+			targetProject.token_decimal = tokenInfo.decimal;
+			targetProject.token_totalSupply = tokenInfo.totalSupply;
 
 			await database.updateProject(targetProject)
 
@@ -429,28 +450,78 @@ const processSettings = async (msg, database) => {
 			instance.sendMessage(privateId, `😢 Sorry, there was some errors on the command. Please try again later 😉`)
 		}
 		return;
+	} else if (stateNode.state === instance.STATE_WAIT_PROJECT_BUY_AMOUNT) {
+		if (!utils.isValidNumber(msg.text.trim())) {
+			instance.sendMessage(privateId, `🚫 Sorry, the percent you entered is invalid. Please input again`)
+			return
+		}
+
+		const value = parseInt(msg.text.trim());
+		if (value < 1 || value > 100) {
+			instance.sendMessage(privateId, `🚫 Sorry, the percent you entered exceeds the value range 1~100. Please input again.`)
+			return
+		}
+
+		const session = instance.sessions.get(stateNode.data.sessionId)
+		assert(session)
+
+		session.target_project.buy_amount = value;
+
+		await database.updateProject(session.target_project)
+
+		// instance.removeMessage(privateId, messageId)
+		const menu = await instance.json_boostVolumeSettings(stateNode.data.sessionId);
+		instance.stateMap_set(privateId, instance.STATE_IDLE, { sessionId: stateNode.data.sessionId })
+		instance.openMenu(privateId, menu.title, menu.options);
+		return;
+	} else if (stateNode.state === instance.STATE_WAIT_PROJECT_WALLET_COUNT) {
+		if (!utils.isValidNumber(msg.text.trim())) {
+			instance.sendMessage(privateId, `🚫 Sorry, the wallet count you entered is invalid. Please input again`)
+			return
+		}
+
+		const value = parseInt(msg.text.trim());
+		if (value < process.env.MIN_WALLET_DIST_COUNT || value > process.env.MAX_WALLET_DIST_COUNT) {
+			instance.sendMessage(privateId, `🚫 Sorry, the wallet count you entered exceeds the value range ${process.env.MIN_WALLET_DIST_COUNT}~${process.env.MAX_WALLET_DIST_COUNT}. Please input again.`)
+			return
+		}
+
+		const session = instance.sessions.get(stateNode.data.sessionId)
+		assert(session)
+
+		session.target_project.wallet_count = value
+		await database.updateProject(session.target_project)
+
+		const menu = await instance.json_boostVolumeSettings(session.chatid);
+		instance.stateMap_set(session.chatid, instance.STATE_IDLE, { sessionId: session.chatid })
+		instance.openMenu(session.chatid, menu.title, menu.options)
+
+		return;
+	} else if (stateNode.state === instance.STATE_WAIT_PROJECT_INTERVAL) {
+		if (!utils.isValidNumber(msg.text.trim())) {
+			instance.sendMessage(privateId, `🚫 Sorry, the volume boost interval you entered is invalid. Please input again`)
+			return
+		}
+
+		const value = parseInt(msg.text.trim());
+		if (value < process.env.MIN_VOLUME_BOOST_INTERVAL || value > process.env.MAX_VOLUME_BOOST_INTERVAL) {
+			instance.sendMessage(privateId, `🚫 Sorry, the volume boost interval you entered exceeds the value range ${process.env.MIN_VOLUME_BOOST_INTERVAL}s~${process.env.MAX_VOLUME_BOOST_INTERVAL}s. Please input again with seconds.`)
+			return
+		}
+
+		const session = instance.sessions.get(stateNode.data.sessionId)
+		assert(session)
+
+		session.target_project.interval = value
+		await database.updateProject(session.target_project)
+
+		const menu = await instance.json_boostVolumeSettings(session.chatid);
+		instance.stateMap_set(session.chatid, instance.STATE_IDLE, { sessionId: session.chatid })
+		instance.openMenu(session.chatid, menu.title, menu.options)
+
+		return;
 	} 
-	// else if (stateNode.state === instance.SIMULATION_WAIT_END_DATE) {
-	// 	const value = msg.text.trim()
-	// 	console.log(value)
-	// 	try {
-	// 		new Date(value)
-	// 	} catch (error) {
-	// 		instance.sendMessage(privateId, `🚫 Sorry, the value you entered is invalid. Please input again`)
-	// 		return
-	// 	}
-	// 	const session = instance.sessions.get(stateNode.data.sessionId)
-	// 	assert(session)
-
-	// 	session.end_date = value
-
-	// 	await database.updateUser(session)
-
-	// 	instance.sendMessage(privateId, `✅ Initial End date setting has been updated`)
-
-	// 	instance.stateMap_set(privateId, instance.STATE_IDLE, { sessionId: stateNode.data.sessionId })
-	// 	return;
-	// } else if (stateNode.state === instance.SIMULATION_WAIT_START_DATE) {
+	// else if (stateNode.state === instance.SIMULATION_WAIT_START_DATE) {
 	// 	const value = msg.text.trim()
 	// 	try {
 	// 		new Date(value)
