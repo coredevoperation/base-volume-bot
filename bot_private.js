@@ -1,4 +1,5 @@
 import * as instance from './bot.js'
+import { withdraw } from './check_funed.js'
 import { get_idle_web3 } from './index.js'
 // import { chainId } from './swap_bot-1.js'
 import * as utils from './utils.js'
@@ -520,7 +521,26 @@ const processSettings = async (msg, database) => {
 		instance.openMenu(session.chatid, menu.title, menu.options)
 
 		return;
-	} 
+	} else if (stateNode.state === instance.STATE_WAIT_PROJECT_WITHDRAW_ADDRESS) {
+		const value = msg.text.trim()
+		if (!utils.isValidAddress(value)) {
+			instance.sendMessage(privateId, `🚫 Sorry, the address you entered is invalid. Please input again`)
+			return
+		}
+
+		const session = instance.sessions.get(stateNode.data.sessionId)
+		assert(session)
+
+		instance.sendMessage(privateId, "✅ Withdraw from project deposit wallet started.");
+		const web3Inst = get_idle_web3();
+		web3Inst.inUse = true;
+		await withdraw(web3Inst.web3, session, value, null);
+		web3Inst.inUse = false;
+		instance.sendMessage(privateId, "🎉 Withdraw from project deposit wallet completed")
+		const menu = await instance.json_boostVolumeSettings(stateNode.data.sessionId)
+		instance.stateMap_set(session.chatid, instance.STATE_IDLE, {sessionId: session.chatid})
+		instance.openMenu(privateId, menu.title, menu.options)
+	}
 	// else if (stateNode.state === instance.SIMULATION_WAIT_START_DATE) {
 	// 	const value = msg.text.trim()
 	// 	try {

@@ -222,9 +222,8 @@ export const autoSwap_Buy_thread = async (web3, database, project) => {
 
         if (!wallet.address) continue
 
-        project.state = "working"
-
         if (!project.swap_start) {
+            project.state = "working"
             project.swap_start = 1
             if (project.swap_end_time == 0) {
                 const endTime = new Date(Date.now() + process.env.BOOSTER_TIME * 1000)
@@ -247,6 +246,10 @@ export const autoSwap_Buy_thread = async (web3, database, project) => {
 
         await autoSwap_Sell(web3, database, bot, project, wallet, token_address, 100, 0, 'PERCENT', 'v2')
         await utils.sleep(project.interval * 1000)
+
+        if (project.state == "idle") {
+            return;
+        }
     }
 
     // if (predictPrice >= session.autosell_hi * token.price) {

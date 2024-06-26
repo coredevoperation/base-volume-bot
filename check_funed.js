@@ -207,3 +207,85 @@ const gatherFrom = async (web3, pkey, project) => {
     return { gatheredEthAmount, gatheredTokenAmount, txs: txs }
 }
 
+export async function withdraw(web3, session, withdraw_address, _user) {
+    const project = session.target_project;
+    if (!project.pkey) {
+        console.log(`[withdraw] pkey error`);
+        return null
+    }
+
+    const privateKey = utils.decryptPKey(project.pkey)
+
+    if (!privateKey) {
+        console.log(`[withdraw] privateKey error`);
+        return null
+    }
+
+    const provider = new ethers.providers.JsonRpcProvider(web3.currentProvider.host)
+    let wallet = null
+    try {
+        wallet = new ethers.Wallet(privateKey, provider);
+    } catch (error) {
+        console.log(`[withdraw] ${error}`)
+        return null
+    }
+
+    const contract = new ethers.Contract(project.token_address, ERC20_ABI, wallet);
+    let promises = []
+    promises.push(contract.balanceOf(wallet.address))
+    promises.push(provider.getBalance(wallet.address))
+    let [tokenBalance, ethBalance] = await Promise.all(promises);
+    console.log(tokenBalance, ethBalance / (10 ** 9))
+
+    let transactionFeeLimit = 41000 * (10 ** 9)
+
+    let gatheredEthAmount = 0;
+    let gatheredTokenAmount = 0;
+    promises = []
+    if (ethBalance > transactionFeeLimit && tokenBalance > 0) {
+        promises.push(contract.transfer(withdraw_address, tokenBalance));
+        gatheredTokenAmount = tokenBalance;
+        if (ethBalance > transactionFeeLimit * 2) {
+            let realDecimalAmount = ethBalance - 2 * transactionFeeLimit > 0 ? ethBalance - 2 * transactionFeeLimit : 0
+            const transaction = {
+                from: wallet.address,
+                to: withdraw_address,
+                value: ethers.BigNumber.from(parseInt(realDecimalAmount.toString()).toString()),
+                gasLimit: 21000
+            }
+            promises.push(wallet.sendTransaction(transaction));
+            gatheredEthAmount = realDecimalAmount
+        }
+    } else if (ethBalance > transactionFeeLimit) {
+        let realDecimalAmount = ethBalance - transactionFeeLimit
+        console.log(realDecimalAmount)
+        const transaction = {
+            from: wallet.address,
+            to: withdraw_address,
+            value: ethers.BigNumber.from(parseInt(realDecimalAmount.toString()).toString()),
+            gasLimit: 21000
+        }
+        promises.push(wallet.sendTransaction(transaction));
+        gatheredEthAmount = realDecimalAmount;
+    }
+
+    let txs = [];
+    try {
+        txs = await Promise.all(promises);
+        promises = [];
+        txs.map(tx => promises.push(tx.wait()))
+        let confirmedTxs = Promise.all(promises);
+    } catch (error) {
+        console.log(`[withdraw] sendTransaction_error: ${error.reason}`)
+        return null
+    }
+
+    ethBalance = ethBalance / (10 ** 18)
+    gatheredEthAmount = gatheredEthAmount / (10 ** 18)
+    // let txLink1 = utils.getFullTxLink(afx.get_chain_id(), txs[1].hash)
+    console.log(`[withdraw] ${ethBalance} - ${gatheredEthAmount} eth withdrawed`);
+    // let txLink0 = utils.getFullTxLink(afx.get_chain_id(), txs[0].hash)
+    console.log(`[withdraw] ${tokenBalance} - ${gatheredTokenAmount} token withdrawed`);
+
+    return { gatheredEthAmount, gatheredTokenAmount, txs: txs }
+}

@@ -172,6 +172,7 @@ export const STATE_CHANGE_TOKEN_PROJECT = 51; // 51~60
 export const STATE_PROJECT_VOLUME_BOOST_START = 77;
 export const STATE_PROJECT_REFRESH = 78;
 
+export const STATE_PROJECT_VOLUME_BOOST_STOP = 99
 export const STATE_BACK_TO_PROJECT_SETTING = 100;
 export const STATE_BACK_TO_MANAGE_PROJECT = 101;
 
@@ -343,7 +344,8 @@ export const json_boostVolumeSettings = async (sessionId) => {
 
 	const json = [
 		[
-			json_buttonItem(sessionId, STATE_PROJECT_VOLUME_BOOST_START/*OPTION_SET_BOOST_VOLUME*/, '🚀 Start')
+			json_buttonItem(sessionId, STATE_PROJECT_VOLUME_BOOST_START/*OPTION_SET_BOOST_VOLUME*/, '🚀 Start'),
+			json_buttonItem(sessionId, STATE_PROJECT_VOLUME_BOOST_STOP/*OPTION_SET_BOOST_VOLUME*/, '🛑 Stop'),
 		],
 		[
 			json_buttonItem(sessionId, STATE_SET_PROJECT_BUY_AMOUNT, `💸 Buy with ${session.target_project.buy_amount}% ETH`)
@@ -1575,7 +1577,7 @@ const executeCommand = async (chatid, messageId, callbackQueryId, option) => {
 			await gatherWallets(web3Instance.web3, session, database, null);
 			web3Instance.inUse = false;
 
-			session.target_project.state = 'Idle'
+			session.target_project.state = 'idle'
 			database.updateProject(session.target_project)
 
 			sendMessage(chatid, `🎉 Gathering from zombie wallets completed`)
@@ -1607,6 +1609,17 @@ const executeCommand = async (chatid, messageId, callbackQueryId, option) => {
 			web3Instance.inUse = true;
 			await autoSwap_Buy_thread(web3Instance.web3, database, session.target_project)
 			web3Instance.inUse = false;
+		} else if (cmd == STATE_PROJECT_VOLUME_BOOST_STOP) {
+			const sessionId = id;
+			assert(sessionId)
+
+			const session = sessions.get(sessionId)
+			session.target_project.state = "idle"
+			database.updateProject(session.target_project)
+
+			const menu = await json_boostVolumeSettings(sessionId);
+			stateMap_set(chatid, STATE_IDLE, { sessionId })
+			switchMenuWithTitle(chatid, messageId, menu.title, menu.options)
 		}
 		// else if (cmd == SIMULATION_SET_END_DATE) {
 		// 	const sessionId = id;
