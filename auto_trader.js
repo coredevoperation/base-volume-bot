@@ -53,14 +53,14 @@ const GetSellDurationTimeOut = (endTime) => {
     return false
 }
 
-export const autoSwap_Buy = async (web3, database, wallet, tokenAddress, buyAmount, sendMsg) => {
+export const autoSwap_Buy = async (web3, database, wallet, tokenAddress, buyAmount, buyUnit, sendMsg) => {
 
     if (!wallet.pkey) {
         sendMsg(`❗ AutoBuy failed: No wallet attached.`)
         return false
     }
-
-    await swapBot.buyToken(web3, database, wallet, tokenAddress, buyAmount, 'ETH', 'v2', sendMsg)
+    
+    await swapBot.buyToken(web3, database, wallet, tokenAddress, buyAmount, buyUnit, 'v2', sendMsg)
 }
 
 export const autoSwap_Sell = async (web3, database, bot, session, wallet, tokenAddress, sellPercent, sellAmount, sellUnit, version, callback = null) => {
@@ -205,32 +205,33 @@ export const autoSwap_Sell_thread = async (web3, database, bot) => {
 export const autoSwap_Buy_thread = async (web3, database, project) => {
 
     // console.log("autoSwap_Buythread start..")
-
+    if (!project.swap_start) {
+        project.swap_start = 1
+        if (!project.swap_end_time) {
+            const endTime = new Date(Date.now() + project.period * 3600 * 1000)
+            console.log(project.project_name, project.period)
+            project.swap_end_time = Math.floor(endTime.getTime() / 1000)
+            // console.log("end time = ", g_buy_endTime)
+        }
+    }
     const min = 1;
     const max = 100;
 
-    let start_time = Date.now()
     // console.log("++++autoSwap_buy_thread ---> ", user.username );
 
     const token_address = project.token_address;
     const wallets = await database.selectWallets({ username: project.username, project_name: project.project_name })
 
     for (let i = 0; i < project.wallet_count; i++) {
+        if (project.state == "Idle") {
+            return;
+        }
+
         let wallet = wallets[i]
 
         // console.log(`wallet[${i}]=${wallet.address}`)
 
         if (!wallet.address) continue
-
-        if (!project.swap_start) {
-            project.state = "working"
-            project.swap_start = 1
-            if (project.swap_end_time == 0) {
-                const endTime = new Date(Date.now() + process.env.BOOSTER_TIME * 1000)
-                project.swap_end_time = Math.floor(endTime.getTime() / 1000)
-                // console.log("end time = ", g_buy_endTime)
-            }
-        }
 
         let randomNum = getRandomNumber(min, max);
         // console.log("Random Number:", randomNum);
@@ -238,18 +239,13 @@ export const autoSwap_Buy_thread = async (web3, database, project) => {
         let buy_amount = process.env.BUY_AMOUNT * randomNum / max
         // console.log(buy_amount)
 
-        await autoSwap_Buy(web3, database, wallet, token_address, buy_amount, (msg) => {
+        await autoSwap_Buy(web3, database, wallet, token_address, project.buy_amount, 'PERCENT', (msg) => {
             // bot.sendMessage(project.chatid, msg)
             // console.log(`[${project.username}]`, msg)
         })
         // await utils.sleep(100)
 
         await autoSwap_Sell(web3, database, bot, project, wallet, token_address, 100, 0, 'PERCENT', 'v2')
-        await utils.sleep(project.interval * 1000)
-
-        if (project.state == "idle") {
-            return;
-        }
     }
 
     // if (predictPrice >= session.autosell_hi * token.price) {
@@ -267,13 +263,15 @@ export const autoSwap_Buy_thread = async (web3, database, project) => {
     //     })
     // }
 
-    if (!project.swap_start || !GetBuyDurationTimeOut(project.swap_end_time)) {
+    if (project.swap_start && !GetBuyDurationTimeOut(project.swap_end_time)) {
         // console.log(`thread call = ${call_count++}, buy_start = ${buy_start}`)
         // console.log("SEsssssssss  -> ", session.swap_start, session.swap_end_time)
     }
     else {
         let msg = `✅ Successfully auto swap for multi wallets has been completed\n${project.project_name}`
         bot.sendMessage(project.chatid, msg)
+        project.swap_start = 0;
+        project.swap_end_time = 0;
         // console.log(`[${user.username}]`, msg)
 
         // session.tier = 0
@@ -296,6 +294,7 @@ export const autoSwap_Buy_thread = async (web3, database, project) => {
         //     session.charge_active = 0;
         //     await database.updateUser(session)
         // }
+        return;
     }
 
 

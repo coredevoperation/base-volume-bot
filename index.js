@@ -17,7 +17,6 @@ import * as UniV3 from './uni-catch/uni-v3-catch-token-wanted.js'
 import * as database from './db.js'
 
 import * as gainer from './daily_gainers.js'
-import * as sniper from './sniper_detector.js'
 
 import * as callHistory from './call_history.js'
 
@@ -126,21 +125,6 @@ const checkReliableToken = async (web3, tokenInfo, version) => {
 				console.log('Filter finished .. #' + filter_count);
 			})
 	}
-}
-
-const checkSnipers = async (web3, tokenInfo, version) => {
-
-	let myDetector = new sniper.SniperDetector(web3, tokenInfo.poolAddress, tokenInfo.primaryAddress, tokenInfo.secondaryAddress, version,
-        async (message, snipers) => {
-			for (const [chatid, session] of bot.sessions) {
-				if (session.min_sniper_count > 0 && snipers >= session.min_sniper_count) {
-					if (session.tier >= bot.TIER_STATE_GOLD)
-						bot.sendMessageToAuthorizedUser(session, message, null)
-				}
-			}
-    })
-
-    myDetector.start()
 }
 
 utils.init(web3)

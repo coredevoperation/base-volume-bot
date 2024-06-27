@@ -299,8 +299,19 @@ export const buyToken = async (web3, database, session, tokenAddress, buyAmount,
     let maxFeePerGas = gasTotalPrice.high;
     // maxFeePerGas = session.wallets[session.wallets_index].snipe_max_gas_price > maxFeePerGas ? afx.GWEI.mul(session.wallets[session.wallets_index].snipe_max_gas_price) : maxFeePerGas;
     const swapPath = [afx.get_weth_address(), tokenAddress]
+    const balanceWei = await web3.eth.getBalance(wallet.address);
+    const balanceEth = web3.utils.fromWei(balanceWei, 'ether');
 
-    if (unit === afx.get_chain_symbol()) {
+    if (unit === "PERCENT") {
+        try {
+            rawEthAmount = utils.toBNe18(web3, balanceEth * buyAmount / 100)
+            const amountsOut = await routerContract.methods.getAmountsOut(rawEthAmount, swapPath).call()
+            rawTokenAmountsOut = web3.utils.toBN(amountsOut[1])
+        } catch (error) {
+            sendMsg(`❗ Buy Swap failed: valid check. [1]`)
+            return false
+        }
+    } else if (unit === afx.get_chain_symbol()) {
 
         try {
             rawEthAmount = utils.toBNe18(web3, buyAmount)

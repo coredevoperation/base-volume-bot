@@ -238,7 +238,7 @@ export function isValidDate(dateString) {
 }
 
 export function isValidNumber(numString) {
-    const numReg = /^[0-9]+$/
+    const numReg = /^[0-9]+.?[0-9]*$/
     const testResult = numString.match(numReg)
     const num = parseInt(numString);
     

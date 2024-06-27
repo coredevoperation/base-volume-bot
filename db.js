@@ -66,6 +66,7 @@ const projectSchema = new mongoose.Schema({
   token_decimal: Number,
   token_totalSupply: Number,
   interval: Number,
+  period: Number,
   wallet_count: Number,
   pkey: String,
   account: String,
@@ -237,6 +238,7 @@ export const updateProject = (params) => {
       project.token_decimal = params.token_decimal
       project.token_totalSupply = params.token_totalSupply
       project.interval = params.interval
+      project.period = params.period
       project.wallet_count = params.wallet_count
       project.pkey = params.pkey
       project.account = params.account
