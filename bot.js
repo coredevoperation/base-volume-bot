@@ -178,6 +178,23 @@ export const json_deleteConfirmProjects = (sessionId) => {
 	return { title: 'Do you really want to delete this project?', options: json }
 }
 
+export const json_showHelp = (sessionId) => {
+	const json = [
+		[
+			json_buttonItem(sessionId, STATE_BACK_TO_PROJECT_SETTING, '⬅ Back')
+		],
+	]
+	const title = `Welcome to Help
+You should follow the steps to boost your volume.
+1. Create New Project.
+2. Deposit ETH to project's deposite wallet.
+3. Divide ETH to zombie wallets.
+4. You can also change some options of project.
+6. Click "Start" to start bot.
+7. After swap is finished, you can gather and withraw ETH and token to project withdraw wallet.`
+	return { title: title, options: json }
+}
+
 export const json_boostVolumeSettings = async (sessionId) => {
 	const session = sessions.get(sessionId);
 	if (!session) return { title: '', options: [] };
@@ -196,7 +213,7 @@ export const json_boostVolumeSettings = async (sessionId) => {
 		],
 		[
 			json_buttonItem(sessionId, STATE_PROJECT_REFRESH, '🔄 Refresh')
-		], 
+		],
 		[
 			json_buttonItem(sessionId, STATE_SET_PROJECT_BUY_AMOUNT, `💸 Buy with ${session.target_project.buy_amount}% ETH`),
 			json_buttonItem(sessionId, STATE_SET_PROJECT_RUNNING_PERIOD, `⏰ Running Period (${session.target_project.period}h)`)
@@ -918,7 +935,7 @@ const executeCommand = async (chatid, messageId, callbackQueryId, option) => {
 		} else if (cmd == STATE_PROJECT_DIVIDE) {
 			const sessionId = id;
 			assert(sessionId)
-			
+
 			const session = sessions.get(sessionId);
 			if (session.target_project.state != "Idle") return;
 
@@ -1014,6 +1031,13 @@ const executeCommand = async (chatid, messageId, callbackQueryId, option) => {
 			// const menu = await json_boostVolumeSettings(sessionId);
 			sendMessage(chatid, `🔢 Please input your bot running period as hour.`)
 			stateMap_set(chatid, STATE_WAIT_PROJECT_RUNNING_PERIOD, { sessionId })
+		} else if (cmd == STATE_VIEW_HELP) {
+			const sessionId = id;
+			assert(sessionId)
+
+			const menu = json_showHelp(sessionId);
+			stateMap_set(chatid, STATE_IDLE, { sessionId })
+			switchMenuWithTitle(chatid, messageId, menu.title, menu.options)
 		}
 	} catch (error) {
 		afx.error_log('getTokexecuteCommand', error)
