@@ -365,6 +365,7 @@ const processSettings = async (msg, database) => {
 			new_project.period = process.env.VOLUME_BOOST_PERIOD
 			new_project.wallet_count = process.env.WALLET_DIST_COUNT
 			new_project.buy_amount = 70
+			new_project.state = "Idle"
 			session.target_project = new_project
 
 			await database.updateProject(new_project)

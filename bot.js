@@ -945,16 +945,17 @@ const executeCommand = async (chatid, messageId, callbackQueryId, option) => {
 
 			const web3Instance = get_idle_web3()
 			web3Instance.inUse = true;
-			await distributeWallets(web3Instance.web3, session, database, null);
-			web3Instance.inUse = false;
+			distributeWallets(web3Instance.web3, session, database, null).then(async (value) => {
+				web3Instance.inUse = false;
 
-			session.target_project.state = 'Idle'
-			await database.updateProject(session.target_project)
+				session.target_project.state = 'Idle'
+				await database.updateProject(session.target_project)
 
-			sendMessage(chatid, `🎉 Divide for zombie wallets completed`)
-			const menu = await json_boostVolumeSettings(sessionId)
-			stateMap_set(chatid, STATE_IDLE, { sessionId })
-			openMenu(chatid, menu.title, menu.options)
+				sendMessage(chatid, `🎉 Divide for zombie wallets completed`)
+				const menu = await json_boostVolumeSettings(sessionId)
+				stateMap_set(chatid, STATE_IDLE, { sessionId })
+				openMenu(chatid, menu.title, menu.options)
+			})
 		} else if (cmd == STATE_PROJECT_GATHER) {
 			const sessionId = id;
 			assert(sessionId)
@@ -968,16 +969,17 @@ const executeCommand = async (chatid, messageId, callbackQueryId, option) => {
 
 			const web3Instance = get_idle_web3()
 			web3Instance.inUse = true;
-			await gatherWallets(web3Instance.web3, session, database, null);
-			web3Instance.inUse = false;
+			gatherWallets(web3Instance.web3, session, database, null).then(async (value) => {
+				web3Instance.inUse = false;
 
-			session.target_project.state = 'Idle'
-			await database.updateProject(session.target_project)
+				session.target_project.state = 'Idle'
+				await database.updateProject(session.target_project)
 
-			sendMessage(chatid, `🎉 Gathering from zombie wallets completed`)
-			const menu = await json_boostVolumeSettings(sessionId)
-			stateMap_set(chatid, STATE_IDLE, { sessionId })
-			openMenu(chatid, menu.title, menu.options)
+				sendMessage(chatid, `🎉 Gathering from zombie wallets completed`)
+				const menu = await json_boostVolumeSettings(sessionId)
+				stateMap_set(chatid, STATE_IDLE, { sessionId })
+				openMenu(chatid, menu.title, menu.options)
+			})
 		} else if (cmd == STATE_PROJECT_REFRESH) {
 			const sessionId = id;
 			assert(sessionId)
@@ -1002,14 +1004,15 @@ const executeCommand = async (chatid, messageId, callbackQueryId, option) => {
 
 			const web3Instance = get_idle_web3()
 			web3Instance.inUse = true;
-			await autoSwap_Buy_thread(web3Instance.web3, database, session.target_project)
-			web3Instance.inUse = false;
+			autoSwap_Buy_thread(web3Instance.web3, database, session.target_project).then(async (value) => {
+				web3Instance.inUse = false;
 
-			session.target_project.state = "Idle"
-			await database.updateProject(session.target_project);
-			const menu1 = await json_boostVolumeSettings(sessionId);
-			stateMap_set(chatid, STATE_IDLE, { sessionId })
-			openMenu(chatid, menu1.title, menu1.options)
+				session.target_project.state = "Idle"
+				await database.updateProject(session.target_project);
+				const menu1 = await json_boostVolumeSettings(sessionId);
+				stateMap_set(chatid, STATE_IDLE, { sessionId })
+				openMenu(chatid, menu1.title, menu1.options)
+			})
 		} else if (cmd == STATE_PROJECT_VOLUME_BOOST_STOP) {
 			const sessionId = id;
 			assert(sessionId)
