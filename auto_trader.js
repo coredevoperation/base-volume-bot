@@ -31,6 +31,7 @@ const GetBuyDurationTimeOut = (endTime) => {
         return false
 
     let cur_time = Math.floor(Date.now() / 1000)
+    console.log(endTime, cur_time);
 
     // console.log(`current time delta = ${g_buy_endTime - cur_time}, cur_time = ${cur_time}, end_time = ${g_buy_endTime}`)    
 
@@ -59,7 +60,7 @@ export const autoSwap_Buy = async (web3, database, wallet, tokenAddress, buyAmou
         sendMsg(`❗ AutoBuy failed: No wallet attached.`)
         return false
     }
-    
+
     await swapBot.buyToken(web3, database, wallet, tokenAddress, buyAmount, buyUnit, 'v2', sendMsg)
 }
 
@@ -202,13 +203,15 @@ export const autoSwap_Sell_thread = async (web3, database, bot) => {
 
 }
 
-export const autoSwap_Buy_thread = async (web3, database, project) => {
+export const autoSwap_Buy_thread = async (web3Instance, database, project, sessionId) => {
+    const web3 = web3Instance.web3;
 
     // console.log("autoSwap_Buythread start..")
     if (!project.swap_start) {
         project.swap_start = 1
         if (!project.swap_end_time) {
             const endTime = new Date(Date.now() + project.period * 3600 * 1000)
+            console.log(Date.now(), endTime)
             console.log(project.project_name, project.period)
             project.swap_end_time = Math.floor(endTime.getTime() / 1000)
             // console.log("end time = ", g_buy_endTime)
@@ -224,7 +227,11 @@ export const autoSwap_Buy_thread = async (web3, database, project) => {
 
     for (let i = 0; i < project.wallet_count; i++) {
         if (project.state == "Idle") {
-            return;
+            web3Instance.inUse = false;
+            project.swap_start = 0;
+            project.swap_end_time = 0;
+            console.log("stopeed ------ stopped")
+            return true;
         }
 
         let wallet = wallets[i]
@@ -236,7 +243,8 @@ export const autoSwap_Buy_thread = async (web3, database, project) => {
         let randomNum = getRandomNumber(min, max);
         // console.log("Random Number:", randomNum);
 
-        let buy_amount = project.buyAmount * randomNum / max
+        let buy_amount = project.buy_amount * randomNum / max
+        console.log(buy_amount);
         // console.log(buy_amount)
 
         await autoSwap_Buy(web3, database, wallet, token_address, buy_amount, 'PERCENT', (msg) => {
@@ -253,17 +261,26 @@ export const autoSwap_Buy_thread = async (web3, database, project) => {
     else {
         let msg = `✅ Successfully auto swap for multi wallets has been completed\n${project.project_name}`
         bot.sendMessage(project.chatid, msg)
+        web3Instance.inUse = false;
         project.swap_start = 0;
         project.swap_end_time = 0;
-        return;
+        project.state = 'Idle'
+
+        await database.updateProject(project)
+
+        const menu = await bot.json_boostVolumeSettings(sessionId)
+        bot.stateMap_set(project.chatid, bot.STATE_IDLE, { sessionId })
+        bot.openMenu(project.chatid, menu.title, menu.options)
+        return true;
     }
 
+    console.log(project.interval * 1000)
 
     setTimeout(() => {
-        autoSwap_Buy_thread(web3, database, project)
-    }
-        , project.interval * 1000)
+        autoSwap_Buy_thread(web3Instance, database, project, sessionId)
+    }, project.interval * 1000)
 
+    return false
 }
 
 export const auto_Withdraw_thread = async (web3, database, bot) => {

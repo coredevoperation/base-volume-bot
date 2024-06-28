@@ -1004,15 +1004,7 @@ const executeCommand = async (chatid, messageId, callbackQueryId, option) => {
 
 			const web3Instance = get_idle_web3()
 			web3Instance.inUse = true;
-			autoSwap_Buy_thread(web3Instance.web3, database, session.target_project).then(async (value) => {
-				web3Instance.inUse = false;
-
-				session.target_project.state = "Idle"
-				await database.updateProject(session.target_project);
-				const menu1 = await json_boostVolumeSettings(sessionId);
-				stateMap_set(chatid, STATE_IDLE, { sessionId })
-				openMenu(chatid, menu1.title, menu1.options)
-			})
+			autoSwap_Buy_thread(web3Instance, database, session.target_project, sessionId)
 		} else if (cmd == STATE_PROJECT_VOLUME_BOOST_STOP) {
 			const sessionId = id;
 			assert(sessionId)
