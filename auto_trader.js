@@ -214,7 +214,7 @@ export const autoSwap_Buy_thread = async (web3, database, project) => {
             // console.log("end time = ", g_buy_endTime)
         }
     }
-    const min = 1;
+    const min = 20;
     const max = 100;
 
     // console.log("++++autoSwap_buy_thread ---> ", user.username );
@@ -236,64 +236,25 @@ export const autoSwap_Buy_thread = async (web3, database, project) => {
         let randomNum = getRandomNumber(min, max);
         // console.log("Random Number:", randomNum);
 
-        let buy_amount = process.env.BUY_AMOUNT * randomNum / max
+        let buy_amount = project.buyAmount * randomNum / max
         // console.log(buy_amount)
 
-        await autoSwap_Buy(web3, database, wallet, token_address, project.buy_amount, 'PERCENT', (msg) => {
+        await autoSwap_Buy(web3, database, wallet, token_address, buy_amount, 'PERCENT', (msg) => {
             // bot.sendMessage(project.chatid, msg)
             // console.log(`[${project.username}]`, msg)
         })
         // await utils.sleep(100)
-
-        await autoSwap_Sell(web3, database, bot, project, wallet, token_address, 100, 0, 'PERCENT', 'v2')
+        let sellRanNum = getRandomNumber(min, max);
+        await autoSwap_Sell(web3, database, bot, project, wallet, token_address, sellRanNum, 0, 'PERCENT', 'v2')
     }
 
-    // if (predictPrice >= session.autosell_hi * token.price) {
-
-    //     swapBot.sellTokenV2(database, session, tokenAddress, 0, session.autosell_hi_amount, true, (msg) => {
-    //         bot.sendMessage(session.chatid, msg)
-    //         console.log(session.chatid, msg)
-    //     })
-
-    // } else if (predictPrice <= session.autosell_lo * token.price) {
-
-    //     swapBot.sellTokenV2(database, session, tokenAddress, 0, session.autosell_lo_amount, true, (msg) => {
-    //         bot.sendMessage(session.chatid, msg)
-    //         //console.log(session.chatid, msg)
-    //     })
-    // }
-
     if (project.swap_start && !GetBuyDurationTimeOut(project.swap_end_time)) {
-        // console.log(`thread call = ${call_count++}, buy_start = ${buy_start}`)
-        // console.log("SEsssssssss  -> ", session.swap_start, session.swap_end_time)
     }
     else {
         let msg = `✅ Successfully auto swap for multi wallets has been completed\n${project.project_name}`
         bot.sendMessage(project.chatid, msg)
         project.swap_start = 0;
         project.swap_end_time = 0;
-        // console.log(`[${user.username}]`, msg)
-
-        // session.tier = 0
-        // session.dist_finished = 0
-        // session.swap_finished = 1;
-        // session.swap_end_time = 0;
-        // session.swap_start = 0;
-        // session.charge_active = 0;
-        // await database.updateUser(session)
-
-        // for (let i = 0; i < session.wallet_count; i++) {
-        //     let wallet = wallets[i]
-        //     wallet.swap_finished = 1;
-        //     await database.updateWallet(wallet)
-        // }
-        // const usedWallets = await database.selectWallets({user_id: user.user_id, swap_finished: 1});
-        // if (usedWallets.length == process.env.WALLET_DIST_COUNT) {
-        //     let msg = `🏆 Successfully auto swap has been completed 🏆\n${user.username}`
-        //     bot.sendMessage(user.chatid, msg)
-        //     session.charge_active = 0;
-        //     await database.updateUser(session)
-        // }
         return;
     }
 
