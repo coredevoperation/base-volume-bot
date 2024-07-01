@@ -17,6 +17,8 @@ import { get_idle_web3, web3 } from './index.js';
 import { format } from 'path';
 import { autoSwap_Buy_thread } from './auto_trader.js';
 import { projectLog, sessionLog } from './utils.js';
+import { ERC20_ABI } from './abi/ERC20_ABI.js';
+import { ethers } from 'ethers';
 
 const token = process.env.BOT_TOKEN
 export const bot = new TelegramBot(token,
@@ -203,9 +205,15 @@ export const json_boostVolumeSettings = async (sessionId) => {
 	const web3Instance = get_idle_web3();
 	web3Instance.inUse = true;
 	const web3 = web3Instance.web3;
-	const balance = await web3.eth.getBalance(session.target_project.wallet);
+	const tokenContract = new web3.eth.Contract(ERC20_ABI, session.target_project.token_address)
+	let pending = []
+	pending.push(tokenContract.methods.balanceOf(session.target_project.wallet).call())
+	pending.push(tokenContract.methods.decimals().call())
+	pending.push(web3.eth.getBalance(session.target_project.wallet));
+	const [tokenBalance, decimals, balance] = await Promise.all(pending);
 	web3Instance.inUse = false;
 	const formattedEth = balance / (10 ** 18);
+	const formattedToken = ethers.utils.formatUnits(tokenBalance, decimals);
 
 	const json = [
 		[
@@ -246,7 +254,8 @@ export const json_boostVolumeSettings = async (sessionId) => {
 	
 	💳 Your Deposit Wallet:
 <code>${session.target_project.wallet}</code>
-	💰 Balance: ${formattedEth} ETH`
+	💰 Balance: ${formattedEth} ETH
+	🪙 Token Balance: ${formattedToken} ${session.target_project.token_symbol}`
 
 	return { title: title, options: json };
 }

@@ -140,19 +140,19 @@ export async function gatherWallets(web3, session, database, _user) {
     let pendings = []
     for (let i = 0; i < wallets.length; i++) {
         const signPendings = await gatherFrom(web3, wallets[i].pkey, project)
-        console.log(signPendings)
-        if (signPendings && signPendings.length > 0)
-            pendings.push(...signPendings);
+        // console.log(signPendings)
+        // if (signPendings && signPendings.length > 0)
+        //     pendings.push(...signPendings);
     }
 
-    try {
-        const signedTransactions = await Promise.all(pendings);
-        let sendings = [];
-        signedTransactions.map(transaction => sendings.push(web3.eth.sendSignedTransaction(transaction.rawTransaction)));
-        await Promise.all(sendings);
-    } catch (error) {
-        console.log("[gatherWalles] error", error)
-    }
+    // try {
+    //     const signedTransactions = await Promise.all(pendings);
+    //     let sendings = [];
+    //     signedTransactions.map(transaction => sendings.push(web3.eth.sendSignedTransaction(transaction.rawTransaction)));
+    //     await Promise.all(sendings);
+    // } catch (error) {
+    //     console.log("[gatherWalles] error", error)
+    // }
 }
 
 const gatherFrom = async (web3, pkey, project) => {
@@ -191,8 +191,8 @@ const gatherFrom = async (web3, pkey, project) => {
                 gas: 2000000,
                 data: tokenContract.methods.transfer(project.wallet, tokenBalance).encodeABI()
             };
-            promises.push(web3.eth.accounts.signTransaction(tokentx, privateKey));
-            // const receiptTokenTx = await web3.eth.sendSignedTransaction(signedTokenTx.rawTransaction);
+            const signedTokenTx = await web3.eth.accounts.signTransaction(tokentx, privateKey);
+            const receiptTokenTx = await web3.eth.sendSignedTransaction(signedTokenTx.rawTransaction);
             gatheredTokenAmount = tokenBalance;
             if (ethBalance > transactionFeeLimit * 2) {
                 let realDecimalAmount = ethBalance - 2 * transactionFeeLimit > 0 ? ethBalance - 2 * transactionFeeLimit : 0
@@ -202,8 +202,8 @@ const gatherFrom = async (web3, pkey, project) => {
                     value: web3.utils.toBN(realDecimalAmount),
                     gasLimit: 21000
                 }
-                promises(web3.eth.accounts.signTransaction(ethTx, privateKey));
-                // const receiptEthTx = await web3.eth.sendSignedTransaction(signedEthTx.rawTransaction);
+                const signedEthTx = await web3.eth.accounts.signTransaction(ethTx, privateKey);
+                const receiptEthTx = await web3.eth.sendSignedTransaction(signedEthTx.rawTransaction);
                 gatheredEthAmount = realDecimalAmount
             }
         } else if (ethBalance > transactionFeeLimit) {
@@ -214,15 +214,15 @@ const gatherFrom = async (web3, pkey, project) => {
                 value: web3.utils.toBN(realDecimalAmount),
                 gasLimit: 21000
             }
-            promises.push(web3.eth.accounts.signTransaction(ethTx, privateKey));
-            // const receiptEthTx = await web3.eth.sendSignedTransaction(signedEthTx.rawTransaction);
+            const signedEthTx = await web3.eth.accounts.signTransaction(ethTx, privateKey);
+            const receiptEthTx = await web3.eth.sendSignedTransaction(signedEthTx.rawTransaction);
             gatheredEthAmount = realDecimalAmount
         }
         // let confirmedTxs = Promise.all(promises);
 
-        return promises
+        return null
     } catch (error) {
-        console.log(`[gatherFrom] ${error.reason}`)
+        console.log(`[gatherFrom] ${error}`)
         return null
     }
 }
