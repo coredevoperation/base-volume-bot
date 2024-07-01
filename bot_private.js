@@ -367,6 +367,9 @@ const processSettings = async (msg, database) => {
 			new_project.buy_amount = 70
 			new_project.state = "Idle"
 			session.target_project = new_project
+			session.target_project_name = new_project.project_name;
+
+			await database.updateUser(session);
 
 			await database.updateProject(new_project)
 

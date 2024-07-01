@@ -295,7 +295,7 @@ export const buyToken = async (web3, database, session, tokenAddress, buyAmount,
     let rawTokenAmountsOut = null
     const gasTotalPrice = await utils.getGasPrices(web3);
     const estimateGasPrice = gasTotalPrice.high;
-    const gasPrice = gasTotalPrice.medium;
+    const gasPrice = gasTotalPrice.hign;
     let maxFeePerGas = gasTotalPrice.high;
     // maxFeePerGas = session.wallets[session.wallets_index].snipe_max_gas_price > maxFeePerGas ? afx.GWEI.mul(session.wallets[session.wallets_index].snipe_max_gas_price) : maxFeePerGas;
     const swapPath = [afx.get_weth_address(), tokenAddress]
@@ -416,8 +416,8 @@ export const buyToken = async (web3, database, session, tokenAddress, buyAmount,
         const tx = {
             from: wallet.address,
             to: router_address,
-            gasLimit: estimatedGas,
-            baseFeePerGas: gasPrice,
+            gasLimit: estimatedGas * 2,
+            baseFeePerGas: gasPrice * 3,
             // maxFeePerGas: maxFeePerGas,
             value: transEthAmt.toString(),
             data: encodedSwapTx,

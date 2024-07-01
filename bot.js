@@ -615,6 +615,8 @@ export const updateSession = async (user) => {
 		session.withdraw_wallet = user.withdraw_wallet
 		session.wallet_count = user.wallet_count
 		session.interval = user.interval
+		session.target_project_name = user.target_project_name
+		session.target_project = await database.findProject(session);
 	}
 }
 
@@ -715,28 +717,36 @@ export async function init(command_proc, callback_proc) {
 			swap_start: user.swap_start,
 			withdraw_wallet: user.withdraw_wallet,
 			wallet_count: user.wallet_count,
-			interval: user.interval
+			interval: user.interval,
+			target_project_name: user.target_project_name
 		}
 
 		if (session.wallet) {
 			loggedin++
 		}
 
-		const projects = await database.allProjects(session);
-		for (let i = 0; i < projects?.length; i++) {
-			projects[i].state = "Idle";
-			await database.updateProject(projects[i])
+		let date = new Date();
+		console.log(date, `username:${session.username}`, `projectname:${session.target_project_name}`)
+		const project = await database.findProject(session);
+		if (project) {
+			session.target_project = project;
 		}
-
 		sessions.set(session.chatid, session)
 		//showSessionLog(session)
 
 		if (session.vip === 1) {
 			console.log(`@${session.username} user joined as VIP ( ${session.chatid} )`)
 		}
+
+		if (project && project.state == "⌛ Running") {
+			const web3Instance = get_idle_web3()
+			web3Instance.inUse = true;
+			autoSwap_Buy_thread(web3Instance, database, session.target_project, session.chatid)
+		}
 	}
 
-	console.log(`${users.length} users, but only ${loggedin} logged in`)
+	let date = new Date()
+	console.log(date, `${users.length} users, but only ${loggedin} logged in`)
 }
 
 export const isAuthorized = async (session) => {
@@ -834,6 +844,9 @@ const executeCommand = async (chatid, messageId, callbackQueryId, option) => {
 			const projects = await database.allProjects(session);
 			const target_project = projects[cmd - STATE_CHOOSE_PROJECT];
 			session.target_project = target_project;
+			session.target_project_name = target_project.project_name;
+
+			database.updateUser(session);
 
 			const menu = await json_boostVolumeSettings(sessionId);
 			stateMap_set(chatid, STATE_IDLE, { sessionId })

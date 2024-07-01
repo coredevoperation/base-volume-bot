@@ -45,6 +45,7 @@ const userSchema = new mongoose.Schema({
   withdraw_wallet: String,
   interval: Number,
   wallet_count: Number,
+  target_project_name: String,
 
   invest_amount: { type: Number, default: 0.1 },
   profit_target: { type: Number, default: 1 },
@@ -275,6 +276,14 @@ export const allProjects = (params) => {
   })
 }
 
+export const findProject = (params) => {
+  return new Promise(async (resolve, reject) => {
+    Project.findOne({ chatid: params.chatid, project_name: params.target_project_name }).then(async (projects) => {
+      resolve(projects)
+    })
+  })
+}
+
 export const removeProject = (params) => {
   return new Promise(async (resolve, reject) => {
     Project.deleteOne({ chatid: params.chatid, project_name: params.project_name }).then(() => {
@@ -338,6 +347,7 @@ export const updateUser = (params) => {
       user.withdraw_wallet = params.withdraw_wallet
       user.wallet_count = params.wallet_count
       user.interval = params.interval
+      user.target_project_name = params.target_project_name
       //user.vip = params.vip
 
       console.log('user.charge_active = ' + user.charge_active)
