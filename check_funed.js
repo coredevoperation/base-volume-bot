@@ -47,13 +47,15 @@ export async function distributeWallets(web3, session, database, _user) {
         wallets.push(result)
     }
 
+    utils.projectLog(project, `wallet generated! count:${wallets.length}`)
+
     let ethBalance;
     let nonce;
     try {
         ethBalance = await web3.eth.getBalance(project.wallet);
         nonce = await web3.eth.getTransactionCount(project.wallet, 'pending');
     } catch (error) {
-        console.log(`[Distribute] ${error.reason}`)
+        utils.projectLog(project, `[Distribute] ${error.reason}`)
         return null
     }
     const formattedEth = ethBalance / (10 ** 18);
@@ -61,18 +63,21 @@ export async function distributeWallets(web3, session, database, _user) {
 
     let pendings = []
     for (let i = 0; i < project.wallet_count; i++) {
-        const tx = await transferEthTo(web3, distributeAmount, wallets[i].address, project.pkey, nonce + i)
+        const { tx, msg } = await transferEthTo(web3, distributeAmount, wallets[i].address, project.pkey, nonce + i)
         if (tx != null) {
             pendings.push(tx);
+        } else {
+            utils.projectLog(project, msg)
         }
     }
+
     try {
         const transactions = await Promise.all(pendings)
         let confirmPendings = []
         transactions.map(transaction => confirmPendings.push(transaction.wait()));
         const confirms = await Promise.all(confirmPendings);
     } catch (error) {
-        console.log("[Distribute Wallets] error", error)
+        utils.projectLog(project, `[Distribute Wallets] error, ${error}`)
     }
     // session.dist_finished = 1
 }
@@ -96,9 +101,13 @@ const transferEthTo = async (web3, amount, recipientAddress, pkey, nonce) => {
         let ethBalance = 0;
 
         wallet = new ethers.Wallet(privateKey, provider);
-        // ethBalance = await provider.getBalance(wallet.address)
+        ethBalance = await provider.getBalance(wallet.address)
 
-        // let transactionFeeLimit = 41000 * (10 ** 9)
+        let transactionFeeLimit = 41000 * (10 ** 9)
+        if (ethBalance < transactionFeeLimit) {
+            console.log("")
+            return { tx: null, msg: `[underprice error]: insufficient eth amount in deposit wallet ${ethBalance}` };
+        }
         let decimalAmount = amount * (10 ** 18)
         let realDecimalAmount = decimalAmount
 
@@ -115,18 +124,10 @@ const transferEthTo = async (web3, amount, recipientAddress, pkey, nonce) => {
         let tx = null
 
         tx = wallet.sendTransaction(transaction);
-        return tx;
-        const confirmedTx = await tx.wait()
-
-        const paidAmount = realDecimalAmount / (10 ** 18)
-        ethBalance = ethBalance / (10 ** 18)
-        let txLink = utils.getFullTxLink(afx.get_chain_id(), tx.hash)
-        console.log(`[transferEthTo] ${ethBalance} - ${paidAmount} eth transfer tx sent:`, txLink);
-
-        return { paidAmount, tx: tx.hash }
+        return { tx, msg: "" };
     } catch (error) {
         console.log(`[transferEthTo] ${error.reason}`)
-        return null;
+        return { tx: null, msg: `[transferEthTo] ${error}` };
     }
 }
 
@@ -138,11 +139,17 @@ export async function gatherWallets(web3, session, database, _user) {
     let wallets = await database.selectWallets({ username: project.username, project_name: project.project_name })
     let pendings = []
     for (let i = 0; i < wallets.length; i++) {
-        const waits = await gatherFrom(web3, wallets[i].pkey, project)
-        pendings.push(...waits);
+        const signPendings = await gatherFrom(web3, wallets[i].pkey, project)
+        console.log(signPendings)
+        if (signPendings && signPendings.length > 0)
+            pendings.push(...signPendings);
     }
+
     try {
-        await Promise.all(pendings)
+        const signedTransactions = await Promise.all(pendings);
+        let sendings = [];
+        signedTransactions.map(transaction => sendings.push(web3.eth.sendSignedTransaction(transaction.rawTransaction)));
+        await Promise.all(sendings);
     } catch (error) {
         console.log("[gatherWalles] error", error)
     }
@@ -162,63 +169,55 @@ const gatherFrom = async (web3, pkey, project) => {
     }
 
     try {
-        const provider = new ethers.providers.JsonRpcProvider(web3.currentProvider.host)
-        let wallet = null
-        wallet = new ethers.Wallet(privateKey, provider);
+        const account = web3.eth.accounts.privateKeyToAccount(privateKey);
+        const tokenContract = new web3.eth.Contract(ERC20_ABI, project.token_address);
 
-        const contract = new ethers.Contract(project.token_address, ERC20_ABI, wallet);
         let promises = []
-        promises.push(contract.balanceOf(wallet.address))
-        promises.push(provider.getBalance(wallet.address))
-        let tokenBalance, ethBalance;
-        [tokenBalance, ethBalance] = await Promise.all(promises);
-
-        console.log(tokenBalance, ethBalance / (10 ** 9))
+        promises.push(tokenContract.methods.balanceOf(account.address).call())
+        promises.push(web3.eth.getBalance(account.address))
+        promises.push(web3.eth.getTransactionCount(account.address, 'latest'));
+        let [tokenBalance, ethBalance, nonce] = await Promise.all(promises);
+        console.log(tokenBalance, ethBalance / (10 ** 9), nonce)
 
         let transactionFeeLimit = 41000 * (10 ** 9)
-
+        // rawTokenAmountsOut = web3.utils.toBN(amountsOut[1])
         let gatheredEthAmount = 0;
         let gatheredTokenAmount = 0;
         promises = []
         if (ethBalance > transactionFeeLimit && tokenBalance > 0) {
-            promises.push(contract.transfer(project.wallet, tokenBalance));
+            const tokentx = {
+                from: account.address,
+                to: project.token_address,
+                gas: 2000000,
+                data: tokenContract.methods.transfer(project.wallet, tokenBalance).encodeABI()
+            };
+            promises.push(web3.eth.accounts.signTransaction(tokentx, privateKey));
+            // const receiptTokenTx = await web3.eth.sendSignedTransaction(signedTokenTx.rawTransaction);
             gatheredTokenAmount = tokenBalance;
             if (ethBalance > transactionFeeLimit * 2) {
                 let realDecimalAmount = ethBalance - 2 * transactionFeeLimit > 0 ? ethBalance - 2 * transactionFeeLimit : 0
-                const transaction = {
-                    from: wallet.address,
+                const ethTx = {
+                    from: account.address,
                     to: project.wallet,
-                    value: ethers.BigNumber.from(parseInt(realDecimalAmount.toString()).toString()),
+                    value: web3.utils.toBN(realDecimalAmount),
                     gasLimit: 21000
                 }
-                promises.push(wallet.sendTransaction(transaction));
+                promises(web3.eth.accounts.signTransaction(ethTx, privateKey));
+                // const receiptEthTx = await web3.eth.sendSignedTransaction(signedEthTx.rawTransaction);
                 gatheredEthAmount = realDecimalAmount
             }
         } else if (ethBalance > transactionFeeLimit) {
-            let realDecimalAmount = ethBalance - transactionFeeLimit
-            console.log(realDecimalAmount)
-            const transaction = {
-                from: wallet.address,
+            let realDecimalAmount = ethBalance - transactionFeeLimit;
+            const ethTx = {
+                from: account.address,
                 to: project.wallet,
-                value: ethers.BigNumber.from(parseInt(realDecimalAmount.toString()).toString()),
+                value: web3.utils.toBN(realDecimalAmount),
                 gasLimit: 21000
             }
-            promises.push(wallet.sendTransaction(transaction));
-            gatheredEthAmount = realDecimalAmount;
+            promises.push(web3.eth.accounts.signTransaction(ethTx, privateKey));
+            // const receiptEthTx = await web3.eth.sendSignedTransaction(signedEthTx.rawTransaction);
+            gatheredEthAmount = realDecimalAmount
         }
-
-        let txs = [];
-        txs = await Promise.all(promises);
-
-        ethBalance = ethBalance / (10 ** 18)
-        gatheredEthAmount = gatheredEthAmount / (10 ** 18)
-        // let txLink1 = utils.getFullTxLink(afx.get_chain_id(), txs[1].hash)
-        console.log(`[gatherFrom] ${ethBalance} - ${gatheredEthAmount} eth gathered`);
-        // let txLink0 = utils.getFullTxLink(afx.get_chain_id(), txs[0].hash)
-        console.log(`[gatherFrom] ${tokenBalance} - ${gatheredTokenAmount} token gathered`);
-
-        promises = [];
-        txs.map(tx => promises.push(tx.wait()))
         // let confirmedTxs = Promise.all(promises);
 
         return promises

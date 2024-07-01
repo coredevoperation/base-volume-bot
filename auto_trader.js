@@ -64,13 +64,10 @@ export const autoSwap_Buy = async (web3, database, wallet, tokenAddress, buyAmou
     await swapBot.buyToken(web3, database, wallet, tokenAddress, buyAmount, buyUnit, 'v2', sendMsg)
 }
 
-export const autoSwap_Sell = async (web3, database, bot, session, wallet, tokenAddress, sellPercent, sellAmount, sellUnit, version, callback = null) => {
+export const autoSwap_Sell = async (web3, database, bot, session, wallet, tokenAddress, sellPercent, sellAmount, sellUnit, version, sendMsg, callback = null) => {
 
     const sellValue = (sellUnit === 'PERCENT' ? sellPercent : sellAmount)
-    await swapBot.sellToken(web3, database, wallet, tokenAddress, sellValue, sellUnit, version, (msg) => {
-        // bot.sendMessage(session.chatid, msg)
-        // console.log(`[${session.username}]`, msg)
-    }, async (params) => {
+    await swapBot.sellToken(web3, database, wallet, tokenAddress, sellValue, sellUnit, version, sendMsg, async (params) => {
         if (callback) {
             callback(params)
         }
@@ -211,26 +208,36 @@ export const autoSwap_Buy_thread = async (web3Instance, database, project, sessi
         project.swap_start = 1
         if (!project.swap_end_time) {
             const endTime = new Date(Date.now() + project.period * 3600 * 1000)
-            console.log(Date.now(), endTime)
-            console.log(project.project_name, project.period)
             project.swap_end_time = Math.floor(endTime.getTime() / 1000)
-            // console.log("end time = ", g_buy_endTime)
+            utils.projectLog(project, `Volume boosting started period:${project.period}H endTime:${endTime.toISOString()}`)
+            utils.projectLog(project, `curTimeStamp:${Math.floor(Date.now() / 1000)} endTimeStamp:${project.swap_end_time}`)
         }
     }
     const min = 20;
     const max = 100;
 
-    // console.log("++++autoSwap_buy_thread ---> ", user.username );
-
     const token_address = project.token_address;
     const wallets = await database.selectWallets({ username: project.username, project_name: project.project_name })
+    if (wallets && wallets.length > 0) {
+
+    } else {
+        project.state = "Idle";
+        
+        utils.projectLog(project, `there is no wallets.`)
+
+        const menu = await bot.json_boostVolumeSettings(sessionId)
+        bot.stateMap_set(project.chatid, bot.STATE_IDLE, { sessionId })
+        bot.openMenu(project.chatid, menu.title, menu.options)
+        
+        return false;
+    }
 
     for (let i = 0; i < project.wallet_count; i++) {
         if (project.state == "Idle") {
             web3Instance.inUse = false;
             project.swap_start = 0;
             project.swap_end_time = 0;
-            console.log("stopeed ------ stopped")
+            utils.projectLog(project, "Stopped --- It was stopped by user");
             return true;
         }
 
@@ -241,19 +248,19 @@ export const autoSwap_Buy_thread = async (web3Instance, database, project, sessi
         if (!wallet.address) continue
 
         let randomNum = getRandomNumber(min, max);
-        // console.log("Random Number:", randomNum);
 
-        let buy_amount = project.buy_amount * randomNum / max
-        console.log(buy_amount);
-        // console.log(buy_amount)
+        let buy_amount = project.buy_amount * randomNum / max;
 
         await autoSwap_Buy(web3, database, wallet, token_address, buy_amount, 'PERCENT', (msg) => {
             // bot.sendMessage(project.chatid, msg)
-            // console.log(`[${project.username}]`, msg)
+            utils.projectLog(project, msg)
         })
         // await utils.sleep(100)
         let sellRanNum = getRandomNumber(min, max);
-        await autoSwap_Sell(web3, database, bot, project, wallet, token_address, sellRanNum, 0, 'PERCENT', 'v2')
+        await autoSwap_Sell(web3, database, bot, project, wallet, token_address, sellRanNum, 0, 'PERCENT', 'v2', (msg) => {
+            // bot.sendMessage(session.chatid, msg)
+            utils.projectLog(project, msg)
+        })
     }
 
     if (project.swap_start && !GetBuyDurationTimeOut(project.swap_end_time)) {

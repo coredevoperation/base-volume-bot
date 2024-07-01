@@ -23,6 +23,18 @@ import dotenv from 'dotenv'
 import { toNamespacedPath } from 'path'
 dotenv.config()
 
+export const sessionLog = (session, msg) => {
+    const logDate = new Date();
+    console.log(logDate, `[user:${session.username}]`, msg);
+    fs.appendFileSync('volume-bot.log', `${logDate.toISOString()} [user:${session.username}] ${msg}\n`);
+}
+
+export const projectLog = (project, msg) => {
+    const logDate = new Date();
+    console.log(logDate, `[user:${project.username} project:${project.project_name}]`, msg);
+    fs.appendFileSync('volume-bot.log', `${logDate.toISOString()} [user:${project.username} project:${project.project_name}] ${msg}\n`);
+}
+
 export const isValidWalletAddress = (walletAddress) => {
     // The regex pattern to match a wallet address.
     const pattern = /^(0x){1}[0-9a-fA-F]{40}$/;
@@ -760,7 +772,7 @@ export const getFullTxLink = (chainId, hash) => {
 
 export const getTokenPriceInETH = async (tokenAddress, decimal) => {
 
-    const url = `https://api.honeypot.is/v1/GetPairs?address=${tokenAddress}&chainID=0`
+    const url = `https://api.honeypot.is/v1/GetPairs?address=${tokenAddress}&chainID=8453`
 
     let resp = await fetchAPI(url, 'GET')
 

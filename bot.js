@@ -16,6 +16,7 @@ import { distributeWallets, gatherWallets } from './check_funed.js';
 import { get_idle_web3, web3 } from './index.js';
 import { format } from 'path';
 import { autoSwap_Buy_thread } from './auto_trader.js';
+import { projectLog, sessionLog } from './utils.js';
 
 const token = process.env.BOT_TOKEN
 export const bot = new TelegramBot(token,
@@ -848,6 +849,8 @@ const executeCommand = async (chatid, messageId, callbackQueryId, option) => {
 
 			database.updateUser(session);
 
+			sessionLog(session, `"${target_project.project_name}" project selected`);
+
 			const menu = await json_boostVolumeSettings(sessionId);
 			stateMap_set(chatid, STATE_IDLE, { sessionId })
 			switchMenuWithTitle(chatid, messageId, menu.title, menu.options)
@@ -897,6 +900,8 @@ const executeCommand = async (chatid, messageId, callbackQueryId, option) => {
 			const projects = await database.allProjects(session);
 			const targetProject = projects[session.delete_project_id];
 			await database.removeProject(targetProject);
+
+			sessionLog(session, `"${targetProject.project_name} project was deleted`)
 
 			const menu = await json_manageProjects(sessionId);
 			stateMap_set(chatid, STATE_IDLE, { sessionId });
@@ -952,8 +957,8 @@ const executeCommand = async (chatid, messageId, callbackQueryId, option) => {
 			const session = sessions.get(sessionId);
 			if (session.target_project.state != "Idle") return;
 
+			projectLog(session.target_project, `✅ Divide for zombie wallets started.`)
 			sendMessage(chatid, `✅ Divide for zombie wallets started.`);
-			session.target_project.state = 'Dividing'
 			await database.updateProject(session.target_project)
 
 			const web3Instance = get_idle_web3()
@@ -965,6 +970,7 @@ const executeCommand = async (chatid, messageId, callbackQueryId, option) => {
 				await database.updateProject(session.target_project)
 
 				sendMessage(chatid, `🎉 Divide for zombie wallets completed`)
+				projectLog(session.target_project, `🎉 Divide for zombie wallets completed`)
 				const menu = await json_boostVolumeSettings(sessionId)
 				stateMap_set(chatid, STATE_IDLE, { sessionId })
 				openMenu(chatid, menu.title, menu.options)
@@ -976,6 +982,7 @@ const executeCommand = async (chatid, messageId, callbackQueryId, option) => {
 			const session = sessions.get(sessionId);
 			if (session.target_project.state != "Idle") return;
 
+			projectLog(session.target_project, `✅ Gathering from zombie wallets started.`);
 			sendMessage(chatid, `✅ Gathering from zombie wallets started.`);
 			session.target_project.state = 'Gathering'
 			await database.updateProject(session.target_project)
@@ -989,6 +996,7 @@ const executeCommand = async (chatid, messageId, callbackQueryId, option) => {
 				await database.updateProject(session.target_project)
 
 				sendMessage(chatid, `🎉 Gathering from zombie wallets completed`)
+				projectLog(session.target_project, `🎉 Gathering from zombie wallets completed`)
 				const menu = await json_boostVolumeSettings(sessionId)
 				stateMap_set(chatid, STATE_IDLE, { sessionId })
 				openMenu(chatid, menu.title, menu.options)
@@ -996,6 +1004,9 @@ const executeCommand = async (chatid, messageId, callbackQueryId, option) => {
 		} else if (cmd == STATE_PROJECT_REFRESH) {
 			const sessionId = id;
 			assert(sessionId)
+			const session = sessions.get(sessionId);
+
+			projectLog(session.target_project, `project refreshed`)
 
 			const menu = await json_boostVolumeSettings(sessionId)
 			stateMap_set(chatid, STATE_IDLE, { sessionId })
